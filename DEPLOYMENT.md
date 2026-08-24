@@ -215,12 +215,14 @@ cannot be pointed at a database that has real data (verified: production returns
 404, staging returns 200 and would abort). It applies the schema, then the
 hardening migration, then deploys the functions. **It copies no data.**
 
-Four things the CLI does not carry. Production isn't usable until all four are
-done by hand:
+Three things the CLI does not carry. Production isn't usable until all three
+are done by hand. (A fourth item, storage buckets, used to be listed here too
+-- it isn't manual: `provision-production.ps1` applies
+`supabase/schema/storage-policies.sql`, which creates `inventory-photos`,
+`catch-photos`, and `gear-photos` -- all **private** -- before the RLS
+hardening migration runs. Confirm all three show `public = false` in step 2d
+rather than re-creating them.)
 
-- **Storage buckets.** Create `inventory-photos` and `catch-photos`, both
-  **private**. The migration's storage policies assume they exist, and photo
-  uploads 404 without them.
 - **Edge function secrets.** The weather and water-data provider keys. Functions
   deploy fine without them and then fail at runtime.
 - **Auth configuration.** Site URL, redirect allow-list, Google provider, rate
@@ -278,8 +280,8 @@ case where it fails.
   Turnstile)** and paste the secret from step 5. This is the real fix for
   credential-stuffing and signup abuse — see the note in step 5 about why the
   Cloudflare WAF can't do it.
-- **Storage:** confirm `inventory-photos` and `catch-photos` both show
-  `public = false` after the migration.
+- **Storage:** confirm `inventory-photos`, `catch-photos`, and `gear-photos`
+  all show `public = false` after the migration.
 - **Edge Functions:** confirm weather/water provider keys are set as secrets and
   never echoed into a response body.
 

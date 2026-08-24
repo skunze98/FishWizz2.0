@@ -15,9 +15,20 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await admin.auth.getUser(token);
     if (userErr || !userData.user) return new Response(JSON.stringify({error:"Unauthorized"}), {status:401,headers:cors});
     const userId = userData.user.id;
-    const tables = ["catches","coaching_scenarios","combos","fishing_sessions","inventory_photo_intake","lakes","lures","maintenance_records","personal_fishing_locations","reels","rods","trips"];
-    for (const table of tables) {
+    // Every table with a per-user row that isn't ON DELETE CASCADE from
+    // auth.users, split by which owner column it actually uses. The privacy
+    // policy promises catches, gear, spots, sessions, and photos are all
+    // permanently removed -- water_spots, mission_feedback,
+    // user_fishing_profiles, and beta_feedback were missing here entirely,
+    // so "delete account" was silently leaving all four behind.
+    const ownerIdTables = ["catches","coaching_scenarios","combos","fishing_sessions","inventory_photo_intake","lakes","lures","maintenance_records","personal_fishing_locations","reels","rods","trips"];
+    const userIdTables = ["water_spots","mission_feedback","user_fishing_profiles","beta_feedback","water_visits"];
+    for (const table of ownerIdTables) {
       const { error } = await admin.from(table).delete().eq("owner_id", userId);
+      if (error) console.error(`delete ${table}`, error.message);
+    }
+    for (const table of userIdTables) {
+      const { error } = await admin.from(table).delete().eq("user_id", userId);
       if (error) console.error(`delete ${table}`, error.message);
     }
     await admin.from("profiles").delete().eq("id", userId);
