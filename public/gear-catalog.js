@@ -224,6 +224,13 @@
     const rows=CATALOG[type][brand]||(CATALOG[type][brand]=[]),seen=new Set(rows.map(r=>familyKey(r[0])));
     list.split('|').map(x=>x.trim()).filter(Boolean).forEach(name=>{if(seen.has(familyKey(name)))return;rows.push(type==='rod'?[name,'','','']:type==='reel'?[name,'','']:[name,'','','']);seen.add(familyKey(name))});
   }));
+  /* The full catalog is generated from the researched master dataset. Keep it
+     separate from this UI code so catalog updates do not risk picker behavior. */
+  Object.entries(window.fishwizzMasterGearData||{}).forEach(([type,brands])=>Object.entries(brands).forEach(([brand,names])=>{
+    if(!BRAND_GROUPS[type]?.includes(brand))BRAND_GROUPS[type]?.push(brand);
+    const rows=CATALOG[type][brand]||(CATALOG[type][brand]=[]),seen=new Set(rows.map(r=>familyKey(r[0])));
+    names.forEach(name=>{if(seen.has(familyKey(name)))return;rows.push(type==='rod'?[name,'','','']:[name,'','']);seen.add(familyKey(name))});
+  }));
   Object.values(BRAND_GROUPS).forEach(rows=>rows.sort((a,b)=>a.localeCompare(b)));
 
   const aliases={'st':'St. Croix','st.':'St. Croix','saint croix':'St. Croix','g loomis':'G. Loomis','g.':'G. Loomis','bsp':'Bass Pro Shops','b pro':'Bass Pro Shops','sixth sense':'6th Sense','strike':'Strike King','abu':'Abu Garcia','scheels':'Scheels Outfitters','ugly':'Ugly Stik','zman':'Z-Man'};
