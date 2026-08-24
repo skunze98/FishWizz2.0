@@ -13,8 +13,16 @@ consent screen needs published legal URLs.
 
 | | Supabase project | Serves |
 |---|---|---|
-| **Production** | `usanapexwjssjscmdjwv.supabase.co` | `www.fishwizz.com` |
+| **Production** | `usanapexwjssjscmdjwv.supabase.co` | `app.fishwizz.com` |
 | **Staging** | `doddeferfxzgdmzadibq.supabase.co` | preview deploys and local dev |
+
+The app and the marketing site are two separate Cloudflare Pages projects:
+the app (this repo, `npm run build` → `dist/`) deploys to `app.fishwizz.com`
+via `scripts/cf-setup-pages.ps1`; the marketing site (`marketing/`) deploys
+to `www.fishwizz.com` via `scripts/cf-setup-marketing.ps1`. Keep that straight
+in every step below — attaching `www.fishwizz.com` to the app's Pages project,
+or registering it as the app's origin with Google/Supabase, points real
+traffic and OAuth at the wrong project.
 
 Nothing in the code names either project — the URL and key come from
 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON` at build time. Switching environments
@@ -301,16 +309,25 @@ cited in the documents and Google checks that the privacy URL resolves.
 
 ## 4. DNS and Cloudflare security 🔑
 
-1. In Pages → **Custom domains**, add `www.fishwizz.com`.
-2. Add a **Redirect Rule**: `fishwizz.com/*` → `https://www.fishwizz.com/$1`, 301.
-   **This is required before Google sign-in works from the apex.** The PKCE code
-   verifier is stored in the *origin's* localStorage, so a user who starts at
-   `fishwizz.com` and returns to `www.fishwizz.com` loses it and the exchange
-   fails with `both auth code and code verifier should be non-empty`.
+There are two Pages projects and this step touches both:
+
+1. In the **app** Pages project (built from this repo), Custom domains → add
+   `app.fishwizz.com` (`scripts/cf-fix-domain.ps1` diagnoses/repairs this
+   attachment if it doesn't take). In the **marketing** Pages project
+   (`fishwizz-web`, built from `marketing/`), Custom domains → add
+   `www.fishwizz.com` (`scripts/cf-setup-marketing.ps1` does this end to end).
+2. Add a **Redirect Rule**: `fishwizz.com/*` → `https://www.fishwizz.com/$1`,
+   301 — the apex sends visitors to the marketing site, not the app. This is
+   a UX nicety, not an auth requirement: the app's own Google sign-in flow
+   starts and ends entirely at `app.fishwizz.com` (a user reaches it via a
+   normal link from marketing, a fresh navigation, before ever starting
+   sign-in), so the PKCE code verifier never needs to survive an apex→www
+   origin change the way an earlier version of this plan assumed.
 3. SSL/TLS → **Full (strict)**, minimum TLS **1.2**, **Always Use HTTPS**,
-   **Automatic HTTPS Rewrites**.
-4. Enable **Bot Fight Mode** and **Web Analytics** (cookieless).
-5. Add a rate-limiting rule on the site origin.
+   **Automatic HTTPS Rewrites** — apply to both projects.
+4. Enable **Bot Fight Mode** and **Web Analytics** (cookieless) — both projects.
+5. Add a rate-limiting rule on the site origin — the app matters most here,
+   since it's the one fronting Supabase auth/API traffic.
 6. HSTS: start at a **low max-age** and ramp up. Don't enable preload until
    you're certain — it is effectively irreversible.
 
@@ -343,7 +360,7 @@ just in the UI, which is what makes it worth doing.
 
 | Field | Value |
 |---|---|
-| Authorized JavaScript origins | `https://www.fishwizz.com`, plus `https://staging.fishwizz.com` if you add one |
+| Authorized JavaScript origins | `https://app.fishwizz.com`, plus `https://staging.fishwizz.com` if you add one |
 | Authorized redirect URIs | `https://usanapexwjssjscmdjwv.supabase.co/auth/v1/callback` **and** `https://doddeferfxzgdmzadibq.supabase.co/auth/v1/callback` |
 
 **The redirect URI is the Supabase callback, not your app URL.** This is the
@@ -351,7 +368,7 @@ single most common way this is misconfigured.
 
 **Both project callbacks go on one OAuth client.** Google allows multiple
 authorized redirect URIs, so a single client covers production and staging. If
-you register only the production one, Google sign-in works on `www` and fails on
+you register only the production one, Google sign-in works on `app` and fails on
 every preview deploy with `redirect_uri_mismatch` — which reads like a code bug
 and isn't.
 
@@ -359,8 +376,10 @@ Then enable the provider in **both** Supabase projects (step 6c), pasting the
 same Client ID and Secret into each.
 
 **OAuth consent screen:** external, app name FishWizz, support email, privacy
-policy `https://www.fishwizz.com/privacy.html`, terms
-`https://www.fishwizz.com/terms.html`. Request only `email`, `profile`, `openid`
+policy `https://app.fishwizz.com/privacy.html`, terms
+`https://app.fishwizz.com/terms.html` — these are served from the app's Pages
+project (they live in `public/`, not `marketing/`), and marketing's own footer
+already links there. Request only `email`, `profile`, `openid`
 — all non-sensitive, so no Google verification review is required, but the URLs
 must resolve. Publish it (leaving it in Testing caps you at 100 users and expires
 refresh tokens after 7 days).
@@ -374,8 +393,8 @@ into production:
 
 *Production project (`usanapexwjssjscmdjwv`):*
 
-- Site URL: `https://www.fishwizz.com`
-- Redirect URLs: `https://www.fishwizz.com/**`, and `https://localhost/**` (the
+- Site URL: `https://app.fishwizz.com`
+- Redirect URLs: `https://app.fishwizz.com/**`, and `https://localhost/**` (the
   Capacitor origin, for the mobile wrappers)
 
 *Staging project (`doddeferfxzgdmzadibq`):*
