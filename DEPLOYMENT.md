@@ -155,6 +155,40 @@ authenticated cross-tenant probe in step 2c can tell those apart.
 The `revoke all on all tables in schema public from anon` in the migration is
 what removes that reachability.
 
+**Status as of 2026-08-24, staging only — read before repeating any of a–d:**
+
+- **Anonymous REST reachability — confirmed closed.** A direct probe against
+  every FishWizz table (all 22, from `profiles` to `data_source_runs`) returned
+  `401`, not `200`. The gap described two paragraphs up no longer exists on
+  staging. The only remaining `anon` grants found were PostGIS metadata
+  objects, not FishWizz tables.
+- **Migration provenance — unverified, do not assume.** Staging's own migration
+  history already lists `20260824101705_harden_rls`, applied directly and
+  *not* through this repo's `20260808120000_harden_rls.sql` or through step b
+  below. Nobody has diffed that applied migration's SQL against the checked-in
+  file — they may or may not be the same content. Reconcile this (pull
+  staging's actual applied SQL and diff it against the file, or record the
+  real migration under its real name) before trusting that step b is a no-op,
+  and before assuming production will get an identical posture from "the same
+  migration."
+- **Cross-tenant isolation — informally checked, not the official result.** A
+  direct-database impersonation check across the 12 per-user tables, using two
+  real accounts with some seeded data, found zero cross-tenant reads. That is
+  supporting evidence, not proof: it did not go through the public REST API
+  with real per-user access tokens, did not run a forged-`owner_id` write
+  attempt, and did not confirm both accounts specifically had both a catch and
+  gear (step c's own precondition for a non-"inconclusive" result). Step c
+  (`node .\scripts\rls-probe.mjs`, no flags first, then with `--destructive`)
+  still needs to run for real before this line item counts as done.
+- **Dashboard settings (step d) — mostly done.** Refresh token rotation +
+  reuse detection (10s interval), sign-in/sign-up/OTP rate limits (30→10 per 5
+  min), and all three storage buckets (`public = false`) are confirmed on
+  staging. **CAPTCHA is deliberately still off** — enabling it needs a
+  Turnstile secret *and* matching frontend token integration (step 5); doing
+  one without the other would lock out real sign-ins, so this is correctly
+  sequenced, not skipped. Leaked-password protection is unavailable on this
+  project's plan (Supabase Pro-only) — a known, accepted gap, not a mistake.
+
 **a. The audit against staging is already done — the migration below was
 rewritten from its results on 2026-08-10.** Read the header comment at the
 top of `supabase/migrations/20260808120000_harden_rls.sql` before touching
