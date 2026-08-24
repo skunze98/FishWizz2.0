@@ -450,7 +450,24 @@ begin
     finesse_lure='Small jigging spoon or minnow imitator'; finesse_color:=primary_color; finesse_how='Use controlled vertical movement at the known fish depth.';
     data_note='Great Lakes and cold-water fisheries often have highly specific seasons, depths, gear, and regulations. Treat this as general presentation guidance and confirm local rules.';
 
-  -- Bass. Distinguish largemouth cover from smallmouth rock/current when possible.
+  -- White bass and yellow bass are temperate basses, not black bass -- open-water
+  -- schooling fish, not cover fish. They do not belong in the largemouth/smallmouth
+  -- branch below (a bare 'bass' match used to route them there by accident).
+  elsif target ~ 'white bass|yellow bass' then
+    primary_combo:='Medium-light or medium spinning setup'; backup_combo:=primary_combo; finesse_combo:='Light spinning setup';
+    primary_lure:=case when activity='active' then 'Small jigging spoon or 1/4-3/8 oz swimbait' else '1/8-1/4 oz curly-tail jig or small crankbait' end;
+    primary_color:=case when clarity='clear' then 'Natural shad or silver' else 'Chartreuse or white with added flash' end;
+    primary_why:='White and yellow bass school and feed on baitfish in open water, often near current breaks, river mouths, humps, or points rather than holding tight to cover the way largemouth or smallmouth do.';
+    primary_how:='Look for gulls, surface activity, or bait on electronics before committing to a spot. Cast past visible schools and retrieve steadily through the school; if fish are not surface-feeding, work the same areas at the depth marked on electronics.';
+    primary_watch:='A hard, fast strike, often several in a row while a school is actively feeding.';
+    backup_lure:='Small inline spinner or spoon'; backup_color:=primary_color;
+    backup_how:='Cover more water at the same depth to relocate the school once the first pass goes quiet.';
+    finesse_lure:='Small tube or curly-tail grub on a light jig head'; finesse_color:='Natural / white';
+    finesse_how:='Slow down and fish just under a scattered or sounding school rather than chasing surface activity.';
+    confidence:=65;
+    data_note:='White and yellow bass move in schools and can go quiet quickly once a school sounds; relocating is usually more productive than staying put.';
+
+  -- Black bass (largemouth/smallmouth). Distinguish largemouth cover from smallmouth rock/current when possible.
   elsif target ~ 'largemouth bass|smallmouth bass|bass' then
     if target ~ 'smallmouth' and (cover ~ 'rock|riprap' or water_type ~ 'river|stream' or current_strength not in ('none','')) then
       primary_combo='Medium-light or medium spinning setup'; backup_combo='Medium spinning or casting setup'; finesse_combo='Medium-light spinning setup';
