@@ -39,6 +39,12 @@ const LEGACY = [
   '/fishwizz-shell-v2.js',
   '/production-hardening.js',
   '/premium-product.js',
+  // Cross-cutting resilience layer (error/offline banners, haptic feedback,
+  // map resize on tab focus) -- app-wide, not page-specific, and boots off a
+  // bare DOMContentLoaded listener rather than a readyState-guarded one, so
+  // it needs the LEGACY chain's synthetic re-dispatch rather than a lazy
+  // pwa.js group (which loads well after that event has already fired).
+  '/field-guard.js',
 ];
 
 let _session = null;
