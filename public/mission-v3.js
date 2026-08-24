@@ -2,7 +2,7 @@
  const $=id=>document.getElementById(id);
  const opts=(id,label,values,selected)=>`<label>${label}<select id="${id}">${values.map(v=>`<option${v===selected?' selected':''}>${v}</option>`).join('')}</select></label>`;
  const missionKey=()=>session?.user?.id?`atlas:lastMission:${session.user.id}`:null;
- function rememberMission(m){const key=missionKey();if(!key||!m)return;try{localStorage.setItem(key,JSON.stringify({saved_at:new Date().toISOString(),context:m.context,recommendation:m.recommendation}))}catch{}}
+ function rememberMission(m){const key=missionKey();if(!key||!m)return;try{localStorage.setItem(key,JSON.stringify({saved_at:new Date().toISOString(),context:m.context,recommendation:m.recommendation}))}catch(e){console.error('FishWizz: could not save last Mission',e)}}
  function arrangeMission(card,btn){
   if(!card||$('missionAdvanced'))return;
   const note=document.createElement('div');note.className='map-note';note.id='missionSimpleNote';note.innerHTML='<b>Keep it simple.</b> Choose the fish, how you are fishing, and the water/cover you see. FishWizz can use your exact spot, profile, saved gear, and live weather for the rest.';
