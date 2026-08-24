@@ -1,0 +1,8 @@
+(()=>{
+ const $=id=>document.getElementById(id);
+ function normalizeMission(){const b=document.querySelector('.nav [data-page="mission"]');if(b){const label=b.querySelector('span:last-child');if(label&&label.textContent!=='Mission')label.textContent='Mission';else if(!label&&b.textContent.trim()!=='Mission')b.textContent='Mission';b.setAttribute('aria-label','Mission')}const eyebrow=document.querySelector('#mission .hero .eyebrow');if(eyebrow&&eyebrow.textContent!=='Mission planner')eyebrow.textContent='Mission planner';const coach=$('coach');if(coach&&coach.textContent!=='Build my Mission')coach.textContent='Build my Mission'}
+ function normalizeMissionCards(){const host=$('atlasToday');if(!host)return;const replacements=[[/Today with Atlas/gi,'Your Mission'],[/today’s Mission/gi,'your Mission'],[/today's Mission/gi,'your Mission'],[/today\b/gi,'Mission']];host.querySelectorAll('.eyebrow,h2,h3,p,button,span').forEach(el=>{if(el.children.length)return;let next=el.textContent||'';for(const [re,val] of replacements)next=next.replace(re,val);if(next!==el.textContent)el.textContent=next})}
+ function apply(){normalizeMission();normalizeMissionCards()}
+ function boot(){apply();document.addEventListener('fishwizz:module-loaded',e=>{const src=e.detail?.src||'';if(/today\.js|mission-loop/.test(src))requestAnimationFrame(apply)});document.addEventListener('atlas:account-changed',()=>requestAnimationFrame(apply));document.addEventListener('atlas:profile-ready',()=>requestAnimationFrame(normalizeMissionCards));document.addEventListener('atlas:mission-built',()=>requestAnimationFrame(normalizeMissionCards));window.fishwizzMissionUiStabilized=true}
+ document.readyState==='loading'?document.addEventListener('DOMContentLoaded',boot):boot();
+})();

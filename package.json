@@ -1,0 +1,22 @@
+{
+  "name": "fishwizz",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/postbuild.mjs",
+    "preview": "vite preview",
+    "check": "node scripts/check-syntax.mjs",
+    "probe:rls": "node scripts/rls-probe.mjs"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.2",
+    "leaflet": "^1.9.4"
+  }
+}

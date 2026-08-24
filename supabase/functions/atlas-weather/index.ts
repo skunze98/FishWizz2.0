@@ -1,0 +1,22 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+const cors={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS"};
+const headers={...cors,"content-type":"application/json"};
+const num=(v:any)=>Number.isFinite(Number(v))?Number(v):null;
+Deno.serve(async(req:Request)=>{
+ if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
+ if(req.method!=="POST")return new Response(JSON.stringify({error:"POST required"}),{status:405,headers});
+ const auth=req.headers.get("authorization")??"",url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!;
+ const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data}=await client.auth.getUser();
+ if(!data.user)return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers});
+ const b=await req.json().catch(()=>({})),lat=Number(b.latitude),lon=Number(b.longitude);
+ if(!Number.isFinite(lat)||!Number.isFinite(lon))return new Response(JSON.stringify({error:"Latitude and longitude required"}),{status:400,headers});
+ const q=new URL("https://api.open-meteo.com/v1/forecast");q.searchParams.set("latitude",String(lat));q.searchParams.set("longitude",String(lon));q.searchParams.set("timezone","auto");q.searchParams.set("forecast_days","3");q.searchParams.set("past_days","1");q.searchParams.set("temperature_unit","fahrenheit");q.searchParams.set("wind_speed_unit","mph");q.searchParams.set("precipitation_unit","inch");q.searchParams.set("current","temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m");q.searchParams.set("hourly","temperature_2m,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m");q.searchParams.set("daily","sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max");
+ const res=await fetch(q);if(!res.ok)return new Response(JSON.stringify({error:"Weather source unavailable",status:res.status}),{status:502,headers});const p=await res.json();
+ const h=p.hourly??{},times=h.time??[],now=p.current?.time;let i=times.findIndex((t:string)=>t>=now);if(i<0)i=Math.max(0,times.length-1);
+ const pressureNow=num(p.current?.surface_pressure),pressureLater=num(h.surface_pressure?.[Math.min(i+3,(h.surface_pressure?.length??1)-1)]);const delta=pressureNow!==null&&pressureLater!==null?pressureLater-pressureNow:null;const pressureTrend=delta===null?"unknown":delta>1.5?"rising":delta<-1.5?"falling":"steady";
+ const recentStart=Math.max(0,i-12),recentPrecip=(h.precipitation??[]).slice(recentStart,i+1).reduce((s:number,v:any)=>s+(num(v)??0),0);const next6=(h.precipitation_probability??[]).slice(i,i+6);const precipRisk=next6.length?Math.max(...next6.map((v:any)=>num(v)??0)):null;
+ const cur=p.current??{},wind=num(cur.wind_speed_10m),gust=num(cur.wind_gusts_10m),cloud=num(cur.cloud_cover),temp=num(cur.temperature_2m);
+ const fishing={pressure_trend:pressureTrend,pressure_change_3h_hpa:delta===null?null:Number(delta.toFixed(1)),recent_precip_12h_in:Number(recentPrecip.toFixed(2)),next_6h_precip_risk_pct:precipRisk,wind_band:wind===null?'unknown':wind>=18?'high':wind>=7?'moderate':'low',sky_band:cloud===null?'unknown':cloud>=75?'overcast':cloud>=25?'partly cloudy':'clear',light_band:cur.is_day===0?'low':cloud!==null&&cloud>=75?'low':'bright',temperature_band:temp===null?'unknown':temp<=45?'cold':temp<=60?'cool':temp<=75?'moderate':temp<=85?'warm':'hot',gusty:wind!==null&&gust!==null&&gust-wind>=8};
+ return new Response(JSON.stringify({source:"Open-Meteo",source_class:"LIVE",fetched_at:new Date().toISOString(),timezone:p.timezone,units:{temperature:"°F",wind:"mph",precipitation:"in",pressure:"hPa"},current:{...cur,pressure_trend:pressureTrend},fishing,next_hours:times.slice(i,i+12).map((t:string,j:number)=>({time:t,temperature:h.temperature_2m?.[i+j],precipitation_probability:h.precipitation_probability?.[i+j],precipitation:h.precipitation?.[i+j],weather_code:h.weather_code?.[i+j],cloud_cover:h.cloud_cover?.[i+j],surface_pressure:h.surface_pressure?.[i+j],wind_speed:h.wind_speed_10m?.[i+j],wind_direction:h.wind_direction_10m?.[i+j],wind_gusts:h.wind_gusts_10m?.[i+j]})),daily:p.daily}),{headers});
+});

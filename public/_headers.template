@@ -1,0 +1,56 @@
+# FishWizz — Cloudflare Pages headers
+#
+# scripts/postbuild.mjs renders this to dist/_headers, substituting
+# %SUPABASE_ORIGIN%. Replaces vercel.json, which Cloudflare Pages ignores.
+#
+# The CSP ships as Report-Only first. Flip it to Content-Security-Policy at
+# Stage 6 after reviewing a deploy's worth of reports -- enforcing an untested
+# policy on cutover day turns a config mistake into an outage.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(self)
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://services.arcgisonline.com; connect-src 'self' %SUPABASE_ORIGIN%; worker-src 'self'; manifest-src 'self'
+
+# Notes on the policy above:
+#
+# frame-ancestors 'none' supersedes X-Frame-Options, so that header is not set.
+#
+# style-src needs 'unsafe-inline': several modules inject <style> elements at
+# runtime (onboarding.js, launch.js, mission-v3.js, arsenal-pro.js, ask-atlas.js,
+# and others), plus Leaflet sets inline style attributes. Removing it means
+# refactoring all of them -- a separate project, tracked, not a blocker for
+# launch.
+#
+# No 'unsafe-eval' anywhere: verified there is no eval() and no new Function()
+# in the tree.
+#
+# script-src is 'self' with no third-party origins at all: Leaflet is bundled
+# from npm rather than loaded from unpkg. That closes the CDN-integrity gap
+# outright -- there is no external script to substitute or fail to load, and no
+# SRI hash to maintain.
+#
+# The remaining external origins are img-src only (map tiles), which cannot
+# execute code.
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Hashed bundler output is content-addressed and safe to pin forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The legacy modules in public/ are served at stable, unhashed URLs, so they
+# must revalidate or a stale one pins itself in the browser cache. Versioning
+# is handled by the service worker's per-build cache name instead.
+/*.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.css
+  Cache-Control: public, max-age=0, must-revalidate

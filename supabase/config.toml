@@ -1,0 +1,39 @@
+# Supabase CLI configuration.
+#
+# project_id is only the local-dev container name; it does NOT pin which remote
+# project commands act on. That is set by `supabase link --project-ref <ref>`,
+# which writes to supabase/.temp/ (gitignored).
+#
+#   staging     doddeferfxzgdmzadibq   <- holds the live beta data
+#   production  usanapexwjssjscmdjwv   <- currently empty
+#
+# ALWAYS run `npx supabase projects list` after linking to confirm which one is
+# marked as linked before running db push against it.
+
+project_id = "fishwizz"
+
+[db]
+# Match the remote major version. Confirm with:
+#   npx supabase projects list
+major_version = 15
+
+[functions]
+# The eight deployed edge functions. Their source lives only in the Supabase
+# project until `supabase functions download` pulls it into supabase/functions/,
+# so until that is done these entries describe something git does not have.
+[functions.ask-atlas]
+verify_jwt = true
+[functions.atlas-live-water]
+verify_jwt = true
+[functions.atlas-nearby-waters]
+verify_jwt = true
+[functions.atlas-place-search]
+verify_jwt = true
+[functions.atlas-water-catalog]
+verify_jwt = true
+[functions.atlas-water-profile]
+verify_jwt = true
+[functions.atlas-weather]
+verify_jwt = true
+[functions.delete-my-account]
+verify_jwt = true

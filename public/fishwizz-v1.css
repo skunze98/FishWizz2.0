@@ -1,0 +1,110 @@
+/* FishWizz V1 visual shell — mockup-aligned, mobile-first */
+html[data-fishwizz-shell-v2="1"] body{background:#020907;color:#f6f6ee}
+html[data-fishwizz-shell-v2="1"] header{position:sticky!important;top:0!important;height:auto!important;padding:0!important;background:rgba(2,9,7,.97)!important;border-bottom:1px solid rgba(209,170,105,.13)!important;backdrop-filter:blur(18px)!important;-webkit-backdrop-filter:blur(18px)!important;z-index:80!important}
+html[data-fishwizz-shell-v2="1"] header .top{display:flex!important;min-height:64px;align-items:center;justify-content:space-between;padding:10px 16px;max-width:1180px;margin:auto}
+html[data-fishwizz-shell-v2="1"] .brand{display:flex;align-items:center;gap:9px;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-weight:950!important;font-size:1.35rem!important;letter-spacing:-.04em!important;color:#f5f8f6!important}
+html[data-fishwizz-shell-v2="1"] .brand img{width:34px;height:34px;display:block;filter:hue-rotate(35deg) saturate(1.2) brightness(1.35)}
+html[data-fishwizz-shell-v2="1"] .brand .fw-tagline{display:none!important}
+html[data-fishwizz-shell-v2="1"] #accountBtn{width:44px;height:44px;padding:0!important;border-radius:50%!important;border:1px solid #d6a84d!important;background:#06100c!important;color:#f2efe2!important;font-size:0!important;display:grid!important;place-items:center}
+html[data-fishwizz-shell-v2="1"] #accountBtn:before{content:'◯';font-size:24px;line-height:1}
+html[data-fishwizz-shell-v2="1"] #accountBtn:after{content:'Profile';position:absolute;font-size:10px;font-weight:800;transform:translateY(31px);color:#d7dbd4}
+html[data-fishwizz-shell-v2="1"] .top>.row{display:none!important}
+html[data-fishwizz-shell-v2="1"] .nav{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;display:flex!important;grid-template-columns:none!important;gap:4px!important;overflow-x:auto!important;margin:0 auto!important;padding:0 12px 10px!important;max-width:1180px!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html[data-fishwizz-shell-v2="1"] .nav button{display:flex!important;flex-direction:row!important;gap:0!important;min-height:40px!important;padding:8px 14px!important;border-radius:11px!important;font-size:.82rem!important;color:#c9cec8!important;background:transparent!important;white-space:nowrap!important}
+html[data-fishwizz-shell-v2="1"] .nav .fw-nav-icon{display:none!important}
+html[data-fishwizz-shell-v2="1"] .nav .active{background:linear-gradient(180deg,#e7bd57,#d7a843)!important;color:#172017!important;box-shadow:0 5px 18px rgba(211,164,62,.18)!important}
+html[data-fishwizz-shell-v2="1"] .nav [data-page="account"]{display:none!important}
+html[data-fishwizz-shell-v2="1"] main{padding:14px 12px 30px!important;max-width:1180px}
+html[data-fishwizz-shell-v2="1"] #status{min-height:0!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;font-size:.78rem!important;color:#aebbb4!important;width:auto!important}
+html[data-fishwizz-shell-v2="1"] #status:not(.err){max-height:22px;overflow:hidden}
+html[data-fishwizz-shell-v2="1"] .hero{border:1px solid rgba(122,217,87,.20)!important;background:radial-gradient(circle at 88% 12%,rgba(120,185,67,.11),transparent 28%),linear-gradient(135deg,#07130e,#0b2519 68%,#102818)!important;box-shadow:0 14px 36px rgba(0,0,0,.26)!important}
+html[data-fishwizz-shell-v2="1"] .hero .eyebrow{color:#e8b654!important}
+html[data-fishwizz-shell-v2="1"] .hero h1{color:#faf8ef!important}
+html[data-fishwizz-shell-v2="1"] .card{background:linear-gradient(180deg,rgba(5,19,14,.98),rgba(3,14,10,.98))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:0 10px 28px rgba(0,0,0,.18)!important}
+html[data-fishwizz-shell-v2="1"] input,html[data-fishwizz-shell-v2="1"] select,html[data-fishwizz-shell-v2="1"] textarea{background:#03110c!important;border-color:rgba(119,174,154,.34)!important;color:#f6f6ee!important}
+html[data-fishwizz-shell-v2="1"] .btn.gold{background:linear-gradient(180deg,#edc15a,#dca943)!important;color:#121b14!important;border-color:#f0c764!important}
+html[data-fishwizz-shell-v2="1"] .btn:not(.gold):not(.bad){background:#13231d!important;border-color:#34483f!important}
+html[data-fishwizz-shell-v2="1"] #mission .grid{align-items:start}
+html[data-fishwizz-shell-v2="1"] #mission .grid>.card:first-child{border-color:rgba(255,255,255,.20)!important}
+html[data-fishwizz-shell-v2="1"] #missionSimpleNote{background:#10241a!important;border-radius:14px!important;padding:13px 14px!important;border:1px solid rgba(255,255,255,.08)!important}
+html[data-fishwizz-shell-v2="1"] #watersMap{border:1px solid rgba(255,255,255,.18)!important;border-radius:18px!important;overflow:hidden!important;box-shadow:0 16px 34px rgba(0,0,0,.22)!important}
+html[data-fishwizz-shell-v2="1"] .map-result,html[data-fishwizz-shell-v2="1"] .result{background:#061710!important;border-color:rgba(255,255,255,.10)!important}
+html[data-fishwizz-shell-v2="1"] #inventoryAdd{border-color:rgba(232,182,84,.28)!important}
+html[data-fishwizz-shell-v2="1"] #inventoryAdd h2{font-size:1.35rem}
+html[data-fishwizz-shell-v2="1"] #inventoryAdd details{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.10)}
+html[data-fishwizz-shell-v2="1"] #inventoryAdd details summary{color:#e7bd57}
+html[data-fishwizz-shell-v2="1"] .fw-auth-banner{margin:0 0 14px;padding:15px 16px;border:1px solid rgba(255,255,255,.22);border-radius:18px;background:linear-gradient(135deg,#08150f,#07110d);display:grid;gap:12px;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+html[data-fishwizz-shell-v2="1"] .fw-auth-banner h3{margin:0;color:#8be267;font-size:1rem}
+html[data-fishwizz-shell-v2="1"] .fw-auth-banner p{margin:4px 0 0;color:#c3cbc4;font-size:.9rem}
+html[data-fishwizz-shell-v2="1"] .fw-auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+html[data-fishwizz-shell-v2="1"] .fw-bottom-nav,
+html[data-fishwizz-shell-v2="1"] .mobile-dock,
+html[data-fishwizz-shell-v2="1"] #watersHealth,
+html[data-fishwizz-shell-v2="1"] #watersRelease,
+html[data-fishwizz-shell-v2="1"] #fieldBrief,
+html[data-fishwizz-shell-v2="1"] #waterEvidenceBrief{display:none!important}
+@media(max-width:760px){
+ html[data-fishwizz-shell-v2="1"] body{padding-bottom:0!important}
+ html[data-fishwizz-shell-v2="1"] header .top{padding:8px 12px;min-height:60px}
+ html[data-fishwizz-shell-v2="1"] .brand{font-size:1.24rem!important}
+ html[data-fishwizz-shell-v2="1"] .brand img{width:30px;height:30px}
+ html[data-fishwizz-shell-v2="1"] .nav{padding:0 8px 8px!important}
+ html[data-fishwizz-shell-v2="1"] .nav button{font-size:.74rem!important;padding:7px 11px!important;min-height:38px!important}
+ html[data-fishwizz-shell-v2="1"] .hero{padding:19px 16px!important;min-height:0!important}
+ html[data-fishwizz-shell-v2="1"] #mission .hero{min-height:0!important}
+ html[data-fishwizz-shell-v2="1"] .hero h1{font-size:clamp(29px,9vw,39px)!important}
+ html[data-fishwizz-shell-v2="1"] .grid{gap:12px!important}
+ html[data-fishwizz-shell-v2="1"] .fw-auth-banner{grid-template-columns:1fr}
+}
+
+/* Rugged Northwoods refinement */
+html[data-fishwizz-shell-v2="1"] body{background:radial-gradient(circle at 16% -8%,rgba(88,126,69,.18),transparent 30%),linear-gradient(180deg,#020806 0%,#06110c 42%,#020806 100%)!important}
+html[data-fishwizz-shell-v2="1"] header{background:linear-gradient(180deg,rgba(2,8,6,.99),rgba(5,16,11,.97))!important;box-shadow:0 9px 28px rgba(0,0,0,.32)!important}
+html[data-fishwizz-shell-v2="1"] .brand{font-size:1.45rem!important;letter-spacing:-.055em!important;text-transform:uppercase}
+html[data-fishwizz-shell-v2="1"] .nav{scrollbar-width:none;overscroll-behavior-x:contain}
+html[data-fishwizz-shell-v2="1"] .nav::-webkit-scrollbar{display:none}
+html[data-fishwizz-shell-v2="1"] .nav button{font-weight:850!important;border:1px solid transparent!important;transition:background .12s ease,border-color .12s ease,color .12s ease}
+html[data-fishwizz-shell-v2="1"] .nav button:not(.active){background:rgba(12,34,24,.55)!important;border-color:rgba(255,255,255,.07)!important}
+html[data-fishwizz-shell-v2="1"] .nav .active{background:linear-gradient(180deg,#f0c45e,#dca642)!important;color:#162017!important;border-color:#f2cf79!important;box-shadow:0 5px 18px rgba(221,169,67,.22)!important}
+html[data-fishwizz-shell-v2="1"] .hero{position:relative;overflow:hidden;border-radius:20px!important;border-color:rgba(255,255,255,.22)!important;background:radial-gradient(circle at 84% 4%,rgba(215,184,106,.18),transparent 27%),linear-gradient(140deg,#07130e,#0d2b1d 65%,#173820)!important}
+html[data-fishwizz-shell-v2="1"] .hero:after{content:'';position:absolute;inset:auto -30px -45px auto;width:170px;height:110px;border-radius:50%;border:1px solid rgba(229,182,83,.07);box-shadow:0 0 0 22px rgba(229,182,83,.025),0 0 0 44px rgba(255,255,255,.018);pointer-events:none}
+html[data-fishwizz-shell-v2="1"] .hero .eyebrow{font-weight:900!important;letter-spacing:.13em!important;text-transform:uppercase;font-size:.7rem!important}
+html[data-fishwizz-shell-v2="1"] .hero h1{font-weight:950!important;letter-spacing:-.045em!important;line-height:1.02!important}
+html[data-fishwizz-shell-v2="1"] .card{border-radius:18px!important;border-color:rgba(255,255,255,.14)!important;box-shadow:0 13px 30px rgba(0,0,0,.22)!important}
+html[data-fishwizz-shell-v2="1"] .card h2,html[data-fishwizz-shell-v2="1"] .card h3{letter-spacing:-.025em}
+html[data-fishwizz-shell-v2="1"] input,html[data-fishwizz-shell-v2="1"] select,html[data-fishwizz-shell-v2="1"] textarea{min-height:48px!important;border-radius:12px!important;border-width:1px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
+html[data-fishwizz-shell-v2="1"] input:focus,html[data-fishwizz-shell-v2="1"] select:focus,html[data-fishwizz-shell-v2="1"] textarea:focus{outline:none!important;border-color:#d7b86a!important;box-shadow:0 0 0 3px rgba(215,184,106,.12)!important}
+html[data-fishwizz-shell-v2="1"] .btn{min-height:46px!important;border-radius:12px!important;font-weight:900!important;letter-spacing:-.012em!important}
+html[data-fishwizz-shell-v2="1"] .btn.gold{background:linear-gradient(180deg,#f3c965,#dda944)!important;border-color:#f2cd77!important;box-shadow:0 8px 20px rgba(222,169,67,.17)!important}
+html[data-fishwizz-shell-v2="1"] .btn:not(.gold):not(.bad){background:linear-gradient(180deg,#172720,#13231d)!important;border-color:#3a4c44!important}
+html[data-fishwizz-shell-v2="1"] .map-note{border:1px solid rgba(255,255,255,.07)!important}
+html[data-fishwizz-shell-v2="1"] #watersMap{border-radius:20px!important;border-color:rgba(229,182,83,.18)!important;box-shadow:0 18px 40px rgba(0,0,0,.34)!important}
+html[data-fishwizz-shell-v2="1"] .map-result{min-height:58px;border-radius:14px!important}
+html[data-fishwizz-shell-v2="1"] .map-result.active{border-color:#e4b456!important;background:linear-gradient(180deg,rgba(228,180,86,.12),rgba(255,255,255,.05))!important}
+html[data-fishwizz-shell-v2="1"] .fw-resolved-water{border-left:3px solid #e5b653!important}
+html[data-fishwizz-shell-v2="1"] #inventoryAdd{background:linear-gradient(180deg,rgba(21,37,25,.98),rgba(6,19,13,.99))!important;border-color:rgba(229,182,83,.34)!important}
+html[data-fishwizz-shell-v2="1"] .fw-auth-banner{border-color:rgba(229,182,83,.24)!important;background:linear-gradient(135deg,#0a1b12,#07110d 70%)!important}
+@media(max-width:760px){
+ html[data-fishwizz-shell-v2="1"] main{padding-left:10px!important;padding-right:10px!important}
+ html[data-fishwizz-shell-v2="1"] .nav button{min-height:42px!important;padding:8px 12px!important}
+ html[data-fishwizz-shell-v2="1"] .hero{border-radius:18px!important;padding:21px 17px!important}
+ html[data-fishwizz-shell-v2="1"] .card{border-radius:16px!important}
+ html[data-fishwizz-shell-v2="1"] .btn{min-height:48px!important}
+}
+
+/* Google sign-in — sits above the email form in #signedOut */
+.fw-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:4px 0 2px}
+.fw-google::before{content:"";width:18px;height:18px;flex:none;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%234285F4' d='M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.1z'/%3E%3Cpath fill='%2334A853' d='M24 46c6 0 11-2 14.6-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.750H4.3v5.7C7.9 40.9 15.4 46 24 46z'/%3E%3Cpath fill='%23FBBC05' d='M11.6 27.45c-.45-1.3-.7-2.7-.7-4.15s.25-2.85.7-4.15V13.45H4.3A22 22 0 0 0 2 23.3c0 3.55.85 6.9 2.3 9.85l7.3-5.7z'/%3E%3Cpath fill='%23EA4335' d='M24 10.05c3.3 0 6.2 1.15 8.5 3.35l6.3-6.3C35 3.5 30 1.5 24 1.5 15.4 1.5 7.9 6.6 4.3 13.45l7.3 5.7C13.3 13.95 18.2 10.05 24 10.05z'/%3E%3C/svg%3E")}
+.fw-or{text-align:center;margin:10px 0 4px;opacity:.7}
+.fw-legal{margin:14px 0 0;text-align:center;line-height:1.5}
+.fw-legal a{color:#d7b55b}
+
+/* Auth feedback, shown next to the form. The global #status bar sits at the top
+   of <main>, far above the account card -- messages written there were
+   invisible to anyone actually looking at the sign-in form. */
+.fw-auth-msg{margin:14px 0 0;padding:11px 13px;border-radius:10px;font-size:.92rem;line-height:1.45;border:1px solid transparent}
+.fw-auth-msg.err{background:rgba(226,121,106,.12);border-color:#e2796a;color:#ffd9d3}
+.fw-auth-msg.ok{background:rgba(105,211,154,.12);border-color:#69d39a;color:#d6f5e4}
+.fw-auth-msg.info{background:rgba(215,181,91,.12);border-color:#d7b55b;color:#f4e6c4}
+.fw-auth-msg b{display:block;margin-bottom:3px}
+.fw-auth-msg a{color:inherit;text-decoration:underline}
