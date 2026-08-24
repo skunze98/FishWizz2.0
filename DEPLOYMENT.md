@@ -162,24 +162,23 @@ what removes that reachability.
   `401`, not `200`. The gap described two paragraphs up no longer exists on
   staging. The only remaining `anon` grants found were PostGIS metadata
   objects, not FishWizz tables.
-- **Migration provenance — unverified, do not assume.** Staging's own migration
-  history already lists `20260824101705_harden_rls`, applied directly and
-  *not* through this repo's `20260808120000_harden_rls.sql` or through step b
-  below. Nobody has diffed that applied migration's SQL against the checked-in
-  file — they may or may not be the same content. Reconcile this (pull
-  staging's actual applied SQL and diff it against the file, or record the
-  real migration under its real name) before trusting that step b is a no-op,
-  and before assuming production will get an identical posture from "the same
-  migration."
-- **Cross-tenant isolation — informally checked, not the official result.** A
-  direct-database impersonation check across the 12 per-user tables, using two
-  real accounts with some seeded data, found zero cross-tenant reads. That is
-  supporting evidence, not proof: it did not go through the public REST API
-  with real per-user access tokens, did not run a forged-`owner_id` write
-  attempt, and did not confirm both accounts specifically had both a catch and
-  gear (step c's own precondition for a non-"inconclusive" result). Step c
-  (`node .\scripts\rls-probe.mjs`, no flags first, then with `--destructive`)
-  still needs to run for real before this line item counts as done.
+- **Migration provenance — reconciled.** Staging's migration history stores the
+  executable SQL for `20260824101705_harden_rls`. On 2026-08-24 that SQL was
+  pulled from `supabase_migrations.schema_migrations`, normalized by removing
+  comments and whitespace, and compared with the repository migration: both
+  normalized to 1,539 characters with no difference. The repository file is
+  now recorded under the real applied name,
+  `supabase/migrations/20260824101705_harden_rls.sql`, so staging history and
+  production provisioning share one canonical version.
+- **Cross-tenant isolation — official probe passed.** Two dedicated,
+  admin-confirmed staging accounts were each seeded through the authenticated
+  REST API with a catch, rod and reel; account A was additionally seeded in
+  every per-user table so no check could hide behind an empty result. The plain
+  probe passed `31 passed, 0 failed, 0 inconclusive`. After fixing the probe to
+  use `user_id` as `user_fishing_profiles`' primary key and to actually exercise
+  UPDATE as well as DELETE, `--destructive` passed
+  `55 passed, 0 failed, 0 inconclusive`. The forged-`owner_id` insert was denied
+  with 403 and no cross-tenant read, update or delete succeeded.
 - **Dashboard settings (step d) — mostly done.** Refresh token rotation +
   reuse detection (10s interval), sign-in/sign-up/OTP rate limits (30→10 per 5
   min), and all three storage buckets (`public = false`) are confirmed on
@@ -191,7 +190,7 @@ what removes that reachability.
 
 **a. The audit against staging is already done — the migration below was
 rewritten from its results on 2026-08-10.** Read the header comment at the
-top of `supabase/migrations/20260808120000_harden_rls.sql` before touching
+top of `supabase/migrations/20260824101705_harden_rls.sql` before touching
 anything else in this section: it records that an earlier version of this
 migration (FORCE ROW LEVEL SECURITY, `search_path = ''` on every SECURITY
 DEFINER function, a parallel set of policies, an assertion that only
@@ -300,7 +299,7 @@ rather than re-creating them.)
 migrate it deliberately, or launch production clean and tell beta users their
 history doesn't carry over. Both are defensible; drifting into it isn't.
 
-**b. Apply the migration.** `supabase/migrations/20260808120000_harden_rls.sql`
+**b. Apply the migration.** `supabase/migrations/20260824101705_harden_rls.sql`
 is idempotent and wrapped in a transaction that aborts if anything is still
 open (`commit` only runs if all three of its steps succeed). It does exactly
 three things: revoke `anon`'s grants on every table/sequence (defence in
@@ -323,7 +322,7 @@ reach another user's data". Run it against each project in turn by pointing
 `FISHWIZZ_SUPABASE_URL` / `FISHWIZZ_SUPABASE_KEY` at that project:
 
 ```powershell
-node .\scripts\rls-probe.mjs
+node --env-file=.env .\scripts\rls-probe.mjs
 ```
 
 The probe must pass against **production** too, not just staging — production is
@@ -332,10 +331,16 @@ been run against.
 
 Needs two throwaway accounts in `.env` (`FISHWIZZ_PROBE_A_*`, `FISHWIZZ_PROBE_B_*`),
 created separately in each project.
-Seed both with a catch and some gear first, or most checks come back
-inconclusive — and inconclusive is not a pass. Add `--destructive` to also probe
-cross-tenant UPDATE and DELETE; it's opt-in because it's only dangerous in the
-case where it fails.
+Seed both with a catch and some gear first, and seed account A in every
+per-user table, or checks come back inconclusive. Inconclusive now exits
+nonzero. Once the plain run has zero inconclusive checks, run:
+
+```powershell
+node --env-file=.env .\scripts\rls-probe.mjs --destructive
+```
+
+The destructive mode probes cross-tenant UPDATE and DELETE. It is opt-in
+because the DELETE would remove account A's test row if RLS were broken.
 
 **d. Dashboard settings.**
 

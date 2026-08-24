@@ -1,4 +1,7 @@
 -- FishWizz — RLS hardening
+-- Staging migration history: 20260824101705_harden_rls. The executable SQL
+-- stored in supabase_migrations.schema_migrations was normalized and verified
+-- identical to this file on 2026-08-24; only comments/whitespace differed.
 -- ---------------------------------------------------------------------------
 -- REWRITTEN 2026-08-10 against the real staging schema (supabase/schema/public.sql),
 -- which was not available when this file was first written.

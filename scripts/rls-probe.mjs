@@ -39,6 +39,7 @@ const PER_USER = [
   'inventory_photo_intake', 'user_fishing_profiles', 'beta_feedback',
 ];
 const REFERENCE = ['waterbodies', 'app_release_status'];
+const PRIMARY_KEY = { user_fishing_profiles: 'user_id' };
 
 let pass = 0, fail = 0, skip = 0;
 const failures = [];
@@ -99,15 +100,16 @@ async function probeAnon() {
 async function probeCrossTenantRead(A, B) {
   console.log('\n2. Cross-tenant read (B must not see A\'s rows)  <-- this is G1');
   for (const t of PER_USER) {
-    const ra = await rest(`${t}?select=id&limit=1`, { token: A.token });
+    const key = PRIMARY_KEY[t] || 'id';
+    const ra = await rest(`${t}?select=${key}&limit=1`, { token: A.token });
     const rowsA = await json(ra);
     if (!ra.ok) { meh(`${t}: A could not read own rows (${ra.status}) -- ${JSON.stringify(rowsA).slice(0, 90)}`); continue; }
     if (!Array.isArray(rowsA) || rowsA.length === 0) { meh(`${t}: A owns no rows, nothing to probe`); continue; }
 
-    const targetId = rowsA[0].id;
-    if (targetId === undefined) { meh(`${t}: no id column to target`); continue; }
+    const targetId = rowsA[0][key];
+    if (targetId === undefined) { meh(`${t}: no ${key} column to target`); continue; }
 
-    const rb = await rest(`${t}?select=*&id=eq.${encodeURIComponent(targetId)}`, { token: B.token });
+    const rb = await rest(`${t}?select=*&${key}=eq.${encodeURIComponent(targetId)}`, { token: B.token });
     const rowsB = await json(rb);
     if (rb.ok && Array.isArray(rowsB) && rowsB.length > 0) {
       bad(`${t}: B READ A's row ${targetId} -- cross-tenant leak`);
@@ -169,14 +171,31 @@ async function probeReferenceWrites(B) {
 async function probeDestructive(A, B) {
   console.log('\n5. Cross-tenant UPDATE / DELETE (--destructive)');
   for (const t of PER_USER) {
-    const ra = await rest(`${t}?select=id&limit=1`, { token: A.token });
+    const key = PRIMARY_KEY[t] || 'id';
+    const ra = await rest(`${t}?select=${key}&limit=1`, { token: A.token });
     const rowsA = await json(ra);
-    if (!ra.ok || !Array.isArray(rowsA) || rowsA.length === 0 || rowsA[0].id === undefined) {
+    if (!ra.ok || !Array.isArray(rowsA) || rowsA.length === 0 || rowsA[0][key] === undefined) {
       meh(`${t}: nothing of A's to target`); continue;
     }
-    const id = rowsA[0].id;
+    const id = rowsA[0][key];
 
-    const rd = await rest(`${t}?id=eq.${encodeURIComponent(id)}`, {
+    // Updating the primary key to its existing value is deliberately a no-op:
+    // if RLS is broken PostgREST returns A's row, proving the leak without
+    // changing its data. A protected row returns an empty representation.
+    const ru = await rest(`${t}?${key}=eq.${encodeURIComponent(id)}`, {
+      token: B.token, method: 'PATCH', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ [key]: id }),
+    });
+    const updated = await json(ru);
+    if (ru.ok && Array.isArray(updated) && updated.length > 0) {
+      bad(`${t}: B UPDATED A's row ${id} -- update policy missing`);
+    } else if (!ru.ok && ru.status >= 500) {
+      bad(`${t}: unexpected ${ru.status} during cross-tenant update -- ${JSON.stringify(updated).slice(0, 90)}`);
+    } else {
+      ok(`${t}: B cannot update A's row`);
+    }
+
+    const rd = await rest(`${t}?${key}=eq.${encodeURIComponent(id)}`, {
       token: B.token, method: 'DELETE', headers: { Prefer: 'return=representation' },
     });
     const deleted = await json(rd);
@@ -215,6 +234,9 @@ async function probeDestructive(A, B) {
     for (const f of failures) console.log(`  - ${f}`);
     process.exit(1);
   }
-  if (skip) console.log('\nInconclusive checks are not passes. Seed both accounts with data and re-run.');
+  if (skip) {
+    console.log('\nInconclusive checks are not passes. Seed both accounts with data and re-run.');
+    process.exit(1);
+  }
   process.exit(0);
 })().catch(e => { console.error('\nProbe aborted:', e.message); process.exit(2); });
