@@ -85,8 +85,20 @@ Object.defineProperty(window, 'session', {
 
 window.api = makeApi(supabase, () => _session);
 
+// Resolves once the initial session check has finished (success or failure) --
+// i.e. once `window.session` is authoritative rather than just its `null`
+// initial value. `window.session === null` is otherwise ambiguous between
+// "not checked yet" and "confirmed signed out", which is exactly what forced
+// arsenal-safe.js and inventory-pro.js to poll for a session that would never
+// arrive, showing "Loading… waiting for your account session" to every signed
+// -out visitor of Gear/Tackle for a full 5 seconds. Await this instead of
+// polling `session?.user?.id` truthiness.
+let resolveAuthReady;
+const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
+
 window.fishwizzAuth = {
   client: supabase,
+  ready: authReady,
   token: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
   signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
   signUp: (email, password) =>
@@ -184,6 +196,10 @@ function loadScript(src) {
     // Never let an auth failure stop the app from loading -- degrade to
     // signed-out rather than showing a blank page.
     console.error('FishWizz: auth init failed, continuing signed out', e);
+  } finally {
+    // window.session is authoritative from this point on, whichever branch
+    // ran. Modules that were blocking on "is there a session yet" can stop.
+    resolveAuthReady();
   }
 
   for (const src of LEGACY) {
