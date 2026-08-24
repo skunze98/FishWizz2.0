@@ -41,7 +41,13 @@
     reel:new Set(['owner_id','atlas_id','brand','model','reel_type','line_type','line_test','line_color','role','replacement_value']),
     tackle:new Set(['owner_id','atlas_id','category','brand','model','size_weight','color','quantity','storage_location','trailer_pairing','species'])
   };
-  const missingColumn=e=>/column .* does not exist|42703/i.test(String(e?.message||e));
+  // PostgREST's actual message for this (confirmed live, saving a rod on
+  // staging) is "Could not find the 'quantity' column of 'rods' in the
+  // schema cache" (PGRST204) -- a different shape from the raw Postgres
+  // "column ... does not exist" (42703) this used to check for alone, so
+  // every rod/reel save was hitting the catch block below instead of this
+  // fallback, 100% of the time.
+  const missingColumn=e=>/column .* does not exist|42703|could not find the .* column/i.test(String(e?.message||e));
   async function insertCompatible(type,table,payload){
     try{return await api(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)})}
     catch(e){
