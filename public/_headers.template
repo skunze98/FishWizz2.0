@@ -19,7 +19,7 @@
 # frame-ancestors 'none' supersedes X-Frame-Options, so that header is not set.
 #
 # style-src needs 'unsafe-inline': several modules inject <style> elements at
-# runtime (onboarding.js, launch.js, mission-v3.js, arsenal-pro.js, ask-atlas.js,
+# runtime (onboarding.js, launch.js, mission-v3.js, arsenal-safe.js, ask-atlas.js,
 # and others), plus Leaflet sets inline style attributes. Removing it means
 # refactoring all of them -- a separate project, tracked, not a blocker for
 # launch.

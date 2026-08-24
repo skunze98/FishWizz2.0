@@ -485,11 +485,12 @@ plus UptimeRobot or Cloudflare Health Checks.
 `fishwizz.auth` localStorage key.** This app handles precise GPS; leaking
 coordinates to a third party would contradict the privacy policy on day one.
 
-Also worth doing in the same pass: the 13 bare `catch {}` blocks across
-`account-isolation.js` (×4), `angler-profile.js`, `inventory-pro.js`,
-`onboarding.js`, `release-pro.js`, `session-pro.js` and `water-brief.js` swallow
-failures — including authorization failures — so monitoring won't see them until
-they're logged.
+Also worth doing in the same pass: the 13 bare `catch{}` blocks across
+`account-isolation.js` (×4), `gear-catalog.js`, `inventory-pro.js` (×2),
+`mission-condition-qa.js`, `mission-inventory-fit.js`, `mission-v3.js`,
+`onboarding.js`, `session-pro.js` and `water-brief.js` swallow failures —
+including authorization failures — so monitoring won't see them until they're
+logged.
 
 Run a full week under monitoring before submitting to either app store.
 
@@ -515,5 +516,3 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 | `report.sql` output | Needs your Supabase access; the migration's section 6 depends on it |
 | Legal review | Needs a lawyer |
 | `spatial.js` | Dead since a rename; it has **never executed in production**. Wiring it in belongs in its own change, not a hosting migration |
-| Leaflet from unpkg | Bundling it from npm removes the last third-party script origin and closes the SRI gap. Do it after cutover |
-| `release-pro.js` | Never loaded by anything — `safeSignup` is dead code. Delete in cleanup |
