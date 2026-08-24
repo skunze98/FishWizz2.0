@@ -244,8 +244,17 @@ are done by hand. (A fourth item, storage buckets, used to be listed here too
 hardening migration runs. Confirm all three show `public = false` in step 2d
 rather than re-creating them.)
 
-- **Edge function secrets.** The weather and water-data provider keys. Functions
-  deploy fine without them and then fail at runtime.
+- **Edge function secrets.** Only `ask-atlas` needs one: `OPENAI_API_KEY` and
+  `ATLAS_AI_MODEL`. The other seven functions hit free, keyless public
+  endpoints (Open-Meteo for weather, MN/WI DNR ArcGIS and USGS for water
+  data, Nominatim for place search) and need no secret at all. Without it,
+  `ask-atlas` deploys fine and then silently falls back to its rules-based
+  answer instead of an AI one — not a hard failure, but worth knowing which
+  mode you're getting.
+  ```powershell
+  npx supabase secrets set OPENAI_API_KEY=... --project-ref usanapexwjssjscmdjwv
+  npx supabase secrets set ATLAS_AI_MODEL=... --project-ref usanapexwjssjscmdjwv
+  ```
 - **Auth configuration.** Site URL, redirect allow-list, Google provider, rate
   limits, Turnstile — steps 2d and 6d. These differ per project; copying
   staging's values verbatim is wrong.
