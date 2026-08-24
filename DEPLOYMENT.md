@@ -155,11 +155,24 @@ authenticated cross-tenant probe in step 2c can tell those apart.
 The `revoke all on all tables in schema public from anon` in the migration is
 what removes that reachability.
 
-**a. Run the audit.** Paste `supabase/audit/report.sql` into the SQL editor and
-run it. It's read-only. Send me the output **from both projects** and I'll
-finish the migration against them — in particular section 2, which lists any
-pre-existing permissive policies, and section 1, which will show whether
-production has RLS enabled at all.
+**a. The audit against staging is already done — the migration below was
+rewritten from its results on 2026-08-10.** Read the header comment at the
+top of `supabase/migrations/20260808120000_harden_rls.sql` before touching
+anything else in this section: it records that an earlier version of this
+migration (FORCE ROW LEVEL SECURITY, `search_path = ''` on every SECURITY
+DEFINER function, a parallel set of policies, an assertion that only
+whitelisted 2 reference tables instead of the real 8) **would have damaged
+this database**, and that the real audit found RLS already enabled on all 27
+tables, `owns_row()` already correct, all five SECURITY DEFINER functions
+already pinning `search_path`, and all three storage buckets already scoped
+correctly. The current file is deliberately small because of that — it is
+only the genuine deltas, not a full rewrite. Do not reintroduce any of the
+four things its own comments say were deliberately left out.
+
+Production has never been audited (see step a2 — it doesn't have a schema
+yet to audit). Once it's provisioned from the same schema and the same
+migration, its posture will match staging's, but confirm with `report.sql`
+after provisioning rather than assuming.
 
 **a2. Provision production.** Production is empty, so there is nothing to harden
 there yet. Two scripts do this; the CLI is pinned as a devDependency, so no
@@ -244,21 +257,23 @@ rather than re-creating them.)
 migrate it deliberately, or launch production clean and tell beta users their
 history doesn't carry over. Both are defensible; drifting into it isn't.
 
-**b. Apply the migration.** `supabase/migrations/20260808120000_harden_rls.sql`.
-It's idempotent and wrapped in a transaction that aborts if anything is still
-open. Before running it, fill in section 6 with any `using (true)` policies the
-audit turned up — policies are OR'd, so one leftover defeats everything else.
+**b. Apply the migration.** `supabase/migrations/20260808120000_harden_rls.sql`
+is idempotent and wrapped in a transaction that aborts if anything is still
+open (`commit` only runs if all three of its steps succeed). It does exactly
+three things: revoke `anon`'s grants on every table/sequence (defence in
+depth — RLS already returns zero rows to `anon`, this makes the tables
+unreachable outright instead of merely empty); default `catches.owner_id` to
+`auth.uid()` for consistency with `water_spots`/`mission_feedback`/
+`fishing_sessions`, which already default it; and assert that posture (RLS
+enabled everywhere except the PostGIS-owned `spatial_ref_sys` table, and no
+`using (true)` policy on anything that isn't one of the 11 known shared
+reference tables). If the assertion fails, the transaction rolls back and
+tells you exactly which table or policy is wrong — nothing to pre-fill by
+hand first.
 
-Two things to expect:
-
-- Pinning `search_path` on `SECURITY DEFINER` functions can surface unqualified
-  references inside a function body as a runtime error. That's the point — it
-  makes the ambiguity explicit instead of exploitable. Test each RPC after
-  applying: build a Mission, search a water, load the map, open Arsenal.
-- `alter column owner_id set default auth.uid()` changes behaviour for
-  `water_spots` and `mission_feedback`, which currently send no owner column at
-  all. Their existing rows may be unowned and will become invisible under RLS.
-  Decide whether to backfill or discard them.
+One thing to expect: applying the `catches.owner_id` default is a no-op if
+it's already set (the migration checks first and logs which happened), so
+running it more than once is safe.
 
 **c. Prove it.** This is the step that turns "policies exist" into "no user can
 reach another user's data". Run it against each project in turn by pointing
