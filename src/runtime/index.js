@@ -253,7 +253,11 @@ function explainAuthError(error) {
   if (raw.includes('password should be') || raw.includes('weak password')) {
     return { title: 'Password is too weak', body: 'Use at least 6 characters.' };
   }
-  if (raw.includes('unable to validate email') || raw.includes('invalid email')) {
+  // Supabase's real message for this case is `Email address "..." is invalid`
+  // -- "invalid" and "email" in that order, not the "invalid email" substring
+  // this used to check for -- so it fell through to the generic fallback
+  // below and showed that raw technical string verbatim. Confirmed live.
+  if (raw.includes('unable to validate email') || (raw.includes('invalid') && raw.includes('email'))) {
     return { title: "That email address doesn't look right", body: 'Check it for typos.' };
   }
   if (raw.includes('signups not allowed') || raw.includes('signup is disabled')) {
