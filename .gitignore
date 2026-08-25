@@ -3,6 +3,13 @@ dist/
 .env
 .env.local
 .env.*.local
+# Vite loads .env.production AFTER .env and OVERRIDES it in `vite build`'s
+# default mode -- a committed one silently pointed every local `npm run
+# build` at production regardless of what .env said, undermining the "local
+# dev never touches production" guarantee DEPLOYMENT.md promises. Production
+# config belongs only in Cloudflare Pages' own Production-environment
+# variables (DEPLOYMENT.md step 1), never in a file here.
+.env.production
 *.log
 .DS_Store
 supabase/.temp/
