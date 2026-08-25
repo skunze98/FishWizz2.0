@@ -144,6 +144,13 @@ Write-Host ''
 Write-Host "==> Pages project '$ProjectName'" -ForegroundColor Cyan
 $proj = Invoke-CF "/accounts/$acct/pages/projects/$ProjectName" -AllowFail
 
+# Only affects a build Cloudflare itself triggers (e.g. if this project is
+# ever attached to Git) -- this deploy uses direct upload, so the value that
+# actually ends up in the bundle comes from .env / the shell during the
+# `npm run build` below. Set here too so the two don't drift if that changes.
+$TurnstileSiteKey = if ($env:VITE_TURNSTILE_SITE_KEY) { $env:VITE_TURNSTILE_SITE_KEY }
+  elseif (Test-Path '.env') { ([regex]::Match((Get-Content '.env' -Raw), '(?m)^VITE_TURNSTILE_SITE_KEY=(\S*)$')).Groups[1].Value } else { '' }
+
 $envVars = @{
   VITE_SUPABASE_URL  = @{ type = 'plain_text'; value = $ProdUrl }
   VITE_SUPABASE_ANON = @{ type = 'plain_text'; value = $ProdKey }
@@ -151,6 +158,13 @@ $envVars = @{
 $previewVars = @{
   VITE_SUPABASE_URL  = @{ type = 'plain_text'; value = $StageUrl }
   VITE_SUPABASE_ANON = @{ type = 'plain_text'; value = $StageKey }
+}
+if ($TurnstileSiteKey) {
+  # A Turnstile SITE key is public by design (same as the Supabase publishable
+  # key above) -- safe to set on both environments even though CAPTCHA is
+  # currently enforced against the one merged project either way.
+  $envVars.VITE_TURNSTILE_SITE_KEY = @{ type = 'plain_text'; value = $TurnstileSiteKey }
+  $previewVars.VITE_TURNSTILE_SITE_KEY = @{ type = 'plain_text'; value = $TurnstileSiteKey }
 }
 $deployCfg = @{
   production = @{ env_vars = $envVars }

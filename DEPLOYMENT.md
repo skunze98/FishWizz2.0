@@ -41,8 +41,54 @@ the same publishable key. This is a real, accepted tradeoff, not a bug:
   redoing.
 - **Real beta data carries forward automatically.** No "sorry, your history
   doesn't move to production" conversation with existing testers.
-- If a real second project ever becomes available (plan upgrade, or recovered
-  access to the original account), splitting them back apart means: create
+### Addendum, same day: `app.fishwizz.com` is not this deployment
+
+While chasing down why `app.fishwizz.com` still looked broken after the
+decision above, it turned out the premise was incomplete, not wrong:
+`usanapexwjssjscmdjwv` is not actually empty (`401 permission denied`, not
+`PGRST205 table not found` -- a real hardened schema, not an unprovisioned
+one), and **`app.fishwizz.com` is currently serving a separate, working
+deployment against it that this session did not make.** A collaborator has
+been doing real production work independently, on infrastructure this
+session doesn't have access to.
+
+Confirmed independently: this Cloudflare account's token can only see the
+`atlasfishing.com` zone, not `fishwizz.com` -- when creating a *fresh* token
+from scratch, `fishwizz.com` isn't even offered as a Zone Resource to select,
+and there's no second account in the dashboard's account switcher to swap
+to. So `fishwizz.com`'s zone is not reachable from this Cloudflare login at
+all, not a permissions gap that can be fixed from this side.
+
+**Decision, made with the user: keep building here, on infrastructure this
+session actually controls, and reconcile domains later.** Concretely:
+
+- **The real working URL for everything in this session is
+  `https://fishwizz-e7d.pages.dev`** (the Cloudflare Pages project's own
+  domain -- always serves the latest Production-environment deploy), not
+  `app.fishwizz.com`. Supabase's `site_url` was pointed here for exactly this
+  reason: an email confirmation link built from `site_url` needs to land on
+  the app that actually holds the session it's confirming, and
+  `app.fishwizz.com` -- being the collaborator's separate deployment against
+  `usanapexwjssjscmdjwv` -- does not.
+- `app.fishwizz.com`'s custom-domain attachment to *this* Pages project
+  (`fishwizz`) has sat in `pending -- CNAME record not set` since the very
+  first deploy today, which in hindsight is the reason nothing here has
+  collided with the collaborator's live setup -- the attempted attachment
+  never actually completed.
+- `www.fishwizz.com` **was** successfully moved onto this session's
+  `fishwizz-web` Pages project earlier today (the pre-existing content there
+  happened to be byte-identical to `marketing/`, which is why it wasn't
+  caught sooner). Left as-is per the user -- not reverted.
+- `app.fishwizz.com/**` stays in Supabase's redirect allow-list for when
+  domain access is sorted out later; it's inert until DNS actually points
+  there.
+- **"Worst case, we copy this work over to `fishwizz.com` once domain access
+  is sorted"** -- the user's own framing, and the right way to read every
+  `fishwizz-e7d.pages.dev` reference in this file from here on: a working
+  stand-in, not the final address.
+
+If a real second project ever becomes available (plan upgrade, or recovered
+access to the original account), splitting them back apart means: create
   the project, run `scripts/capture-staging.ps1` then
   `scripts/provision-production.ps1` against it (both already written for
   exactly this), then revert the `$ProdUrl`/`$ProdKey` values in
