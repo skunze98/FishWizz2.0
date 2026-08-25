@@ -46,9 +46,21 @@ if ($env:SUPABASE_DB_URL -match ':6543/') {
   exit 1
 }
 
-foreach ($f in @('supabase\schema\public.sql','supabase\schema\storage-policies.sql','supabase\migrations\20260808120000_harden_rls.sql')) {
+foreach ($f in @('supabase\schema\public.sql','supabase\schema\storage-policies.sql')) {
   if (-not (Test-Path $f)) { Write-Host "missing: $f -- run capture-staging.ps1 first." -ForegroundColor Red; exit 1 }
 }
+# Every migration in the repo, in order -- not one hardcoded filename. That
+# hardcoded name (20260808120000_harden_rls.sql) no longer exists; the real
+# file is 20260824101705_harden_rls.sql, renamed when its provenance was
+# reconciled against staging's own migration history. Worse, pinning to one
+# file silently skipped every OTHER migration that has landed since
+# (20260817001741_finish_manual_gear_entry.sql,
+# 20260824000000_fix_bass_species_matching.sql) -- production would have
+# been provisioned from a schema two migrations behind staging with no error
+# at all. Migration filenames are timestamp-prefixed, so a plain sort is a
+# chronological apply order.
+$MigrationFiles = @(Get-ChildItem 'supabase\migrations\*.sql' | Sort-Object Name | Select-Object -ExpandProperty FullName)
+if ($MigrationFiles.Count -eq 0) { Write-Host 'missing: supabase\migrations\*.sql -- run capture-staging.ps1 first.' -ForegroundColor Red; exit 1 }
 
 # --- production must still be empty -----------------------------------------
 Write-Host '==> Confirming production is still empty' -ForegroundColor Cyan
@@ -145,11 +157,18 @@ try {
   }
 
   $steps = @(
-    @{ File='supabase\schema\extensions.sql';                    Label='extensions (postgis, pg_trgm)' },
-    @{ File=$applied;                                            Label='public schema' },
-    @{ File='supabase\schema\storage-policies.sql';              Label='storage buckets + policies' },
-    @{ File='supabase\migrations\20260808120000_harden_rls.sql'; Label='RLS hardening'; SelfTransaction=$true }
+    @{ File='supabase\schema\extensions.sql';       Label='extensions (postgis, pg_trgm)' },
+    @{ File=$applied;                               Label='public schema' },
+    @{ File='supabase\schema\storage-policies.sql'; Label='storage buckets + policies' }
   )
+  foreach ($m in $MigrationFiles) {
+    # SelfTransaction if the file wraps itself in BEGIN/COMMIT (harden_rls
+    # does, to abort atomically on its own assertion failures) -- detected
+    # per-file rather than by name, so a future migration isn't silently
+    # mis-applied the way the hardcoded single filename was.
+    $selfWrapped = [System.IO.File]::ReadAllText($m) -match '(?im)^\s*begin\s*;'
+    $steps += @{ File = $m; Label = "migration: $(Split-Path $m -Leaf)"; SelfTransaction = $selfWrapped }
+  }
   foreach ($s in $steps) {
     Write-Host ''
     Write-Host "==> Applying $($s.Label)" -ForegroundColor Cyan
