@@ -87,6 +87,30 @@ session actually controls, and reconcile domains later.** Concretely:
   `fishwizz-e7d.pages.dev` reference in this file from here on: a working
   stand-in, not the final address.
 
+### Addendum, 2026-08-25: launching at `fishwizz-e7d.pages.dev`, not the domain
+
+Decision, made with the user: the `app.fishwizz.com` collaborator conflict
+above is still unresolved, so **public launch happens at
+`https://fishwizz-e7d.pages.dev` for now**, not `app.fishwizz.com`. Confirmed
+via a read-only Cloudflare API check that `app.fishwizz.com`'s custom-domain
+attachment is still `pending -- CNAME record not set`, so this deployment and
+the collaborator's remain non-colliding either way.
+
+**This reopens a problem the first addendum above thought it had closed.**
+Somewhere between that addendum and step 6d being written, `site_url` was
+changed *again*, from the Pages URL to `https://app.fishwizz.com` ("changed
+because `{{ .SiteURL }}` in email templates should point real users at the
+real app" -- true in general, wrong for who "the real app" actually is right
+now). With today's decision, that setting is backwards: a real user
+confirming signup on `fishwizz-e7d.pages.dev` would get an email link built
+from `site_url` pointing at the collaborator's separate deployment, which
+does not hold the session it's confirming. **`site_url` needs to be pointed
+back to `https://fishwizz-e7d.pages.dev` before any real signups happen** --
+flagged here, not yet fixed as of this addendum: this session has no
+Supabase Management API token (only the Cloudflare one, used for the
+read-only domain check above), so this is a dashboard action for the user,
+same as the other 🔑 items in step 6d.
+
 If a real second project ever becomes available (plan upgrade, or recovered
 access to the original account), splitting them back apart means: create
   the project, run `scripts/capture-staging.ps1` then
