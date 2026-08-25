@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 09IltrgAOK8GtVnmCeXKsM1siFQ9f3kLXdqyrhycKV50gYMZkgSBVZ3FZuKu2px
+\restrict 7EwwLTH2NJIf6C47CVaYJCPkaol9vxutCk9TOkdo1e0iOdCE5jZcHk7AgVzVtZu
 
 -- Dumped from database version 17.6
--- Dumped by pg_dump version 18.4 (Ubuntu 18.4-0ubuntu0.26.04.1)
+-- Dumped by pg_dump version 17.11
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -342,13 +342,13 @@ $$;
 --
 
 CREATE FUNCTION storage.filename(name text) RETURNS text
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql IMMUTABLE
     AS $$
 DECLARE
-_parts text[];
+    _parts text[];
 BEGIN
-	select string_to_array(name, '/') into _parts;
-	return _parts[array_length(_parts,1)];
+    SELECT string_to_array(name, '/') INTO _parts;
+    RETURN _parts[array_length(_parts, 1)];
 END
 $$;
 
@@ -712,6 +712,9 @@ DECLARE
     v_limit INT;
     v_prefix TEXT;
     v_prefix_lower TEXT;
+    v_prefix_len INT;
+    v_prefix_start INT;
+    v_combined_levels INT;
     v_is_asc BOOLEAN;
     v_order_by TEXT;
     v_sort_order TEXT;
@@ -732,6 +735,9 @@ BEGIN
     v_limit := LEAST(coalesce(limits, 100), 1500);
     v_prefix := coalesce(prefix, '') || coalesce(search, '');
     v_prefix_lower := lower(v_prefix);
+    v_prefix_len := length(coalesce(prefix, ''));
+    v_prefix_start := coalesce(array_length(string_to_array(coalesce(prefix, ''), v_delimiter), 1), 1);
+    v_combined_levels := coalesce(array_length(string_to_array(v_prefix, v_delimiter), 1), 1);
     v_is_asc := lower(coalesce(sortorder, 'asc')) = 'asc';
     v_file_batch_size := LEAST(GREATEST(v_limit * 2, 100), 1000);
 
@@ -747,17 +753,17 @@ BEGIN
     v_sort_order := CASE WHEN v_is_asc THEN 'asc' ELSE 'desc' END;
 
     -- ========================================================================
-    -- NON-NAME SORTING: Use path_tokens approach (unchanged)
+    -- NON-NAME SORTING: Use path_tokens approach
     -- ========================================================================
     IF v_order_by != 'name' THEN
         RETURN QUERY EXECUTE format(
             $sql$
             WITH folders AS (
-                SELECT path_tokens[$1] AS folder
+                SELECT array_to_string(path_tokens[$1:$2], '/') AS folder
                 FROM storage.objects
-                WHERE objects.name ILIKE $2 || '%%'
-                  AND bucket_id = $3
-                  AND array_length(objects.path_tokens, 1) <> $1
+                WHERE objects.name ILIKE $3 || '%%'
+                  AND bucket_id = $4
+                  AND array_length(objects.path_tokens, 1) <> $2
                 GROUP BY folder
                 ORDER BY folder %s
             )
@@ -768,16 +774,16 @@ BEGIN
                    NULL::timestamptz AS last_accessed_at,
                    NULL::jsonb AS metadata FROM folders)
             UNION ALL
-            (SELECT path_tokens[$1] AS "name",
+            (SELECT array_to_string(path_tokens[$1:$2], '/') AS "name",
                    id, updated_at, created_at, last_accessed_at, metadata
              FROM storage.objects
-             WHERE objects.name ILIKE $2 || '%%'
-               AND bucket_id = $3
-               AND array_length(objects.path_tokens, 1) = $1
+             WHERE objects.name ILIKE $3 || '%%'
+               AND bucket_id = $4
+               AND array_length(objects.path_tokens, 1) = $2
              ORDER BY %I %s)
-            LIMIT $4 OFFSET $5
+            LIMIT $5 OFFSET $6
             $sql$, v_sort_order, v_order_by, v_sort_order
-        ) USING levels, v_prefix, bucketname, v_limit, offsets;
+        ) USING v_prefix_start, v_combined_levels, v_prefix, bucketname, v_limit, offsets;
         RETURN;
     END IF;
 
@@ -887,7 +893,7 @@ BEGIN
             IF v_skipped < offsets THEN
                 v_skipped := v_skipped + 1;
             ELSE
-                name := split_part(rtrim(storage.get_common_prefix(v_peek_name, v_prefix, v_delimiter), v_delimiter), v_delimiter, levels);
+                name := substring(rtrim(storage.get_common_prefix(v_peek_name, v_prefix, v_delimiter), v_delimiter) from v_prefix_len + 1);
                 id := NULL;
                 updated_at := NULL;
                 created_at := NULL;
@@ -924,7 +930,7 @@ BEGIN
                     v_skipped := v_skipped + 1;
                 ELSE
                     -- Emit file
-                    name := split_part(v_current.name, v_delimiter, levels);
+                    name := substring(v_current.name from v_prefix_len + 1);
                     id := v_current.id;
                     updated_at := v_current.updated_at;
                     created_at := v_current.created_at;
@@ -960,10 +966,26 @@ DECLARE
     v_cursor_op text;
     v_query text;
     v_prefix text;
+    v_sort_order text;
+    v_sort_column text;
 BEGIN
     v_prefix := coalesce(p_prefix, '');
 
-    IF p_sort_order = 'asc' THEN
+    -- Defense-in-depth: this function is independently reachable and must
+    -- not trust p_sort_order/p_sort_column to already be validated by a
+    -- caller. Normalize to the same strict allow-list storage.search_v2
+    -- uses before interpolating anything into dynamic SQL below.
+    v_sort_order := lower(coalesce(p_sort_order, 'asc'));
+    IF v_sort_order NOT IN ('asc', 'desc') THEN
+        v_sort_order := 'asc';
+    END IF;
+
+    v_sort_column := lower(coalesce(p_sort_column, 'updated_at'));
+    IF v_sort_column NOT IN ('updated_at', 'created_at') THEN
+        v_sort_column := 'updated_at';
+    END IF;
+
+    IF v_sort_order = 'asc' THEN
         v_cursor_op := '>';
     ELSE
         v_cursor_op := '<';
@@ -1043,11 +1065,11 @@ BEGIN
             name COLLATE "C" %s
         LIMIT $4
     $sql$,
-        p_sort_column,
+        v_sort_column,
         v_cursor_op,
-        p_sort_column,
-        p_sort_order,
-        p_sort_order
+        v_sort_column,
+        v_sort_order,
+        v_sort_order
     );
 
     RETURN QUERY EXECUTE v_query
@@ -1796,7 +1818,11 @@ CREATE TABLE storage.buckets (
     file_size_limit bigint,
     allowed_mime_types text[],
     owner_id text,
-    type storage.buckettype DEFAULT 'STANDARD'::storage.buckettype NOT NULL
+    type storage.buckettype DEFAULT 'STANDARD'::storage.buckettype NOT NULL,
+    versioning_status text DEFAULT 'DISABLED'::text NOT NULL,
+    CONSTRAINT buckets_versioning_dark_check CHECK ((versioning_status = 'DISABLED'::text)),
+    CONSTRAINT buckets_versioning_standard_only_check CHECK (((type = 'STANDARD'::storage.buckettype) OR (versioning_status = 'DISABLED'::text))),
+    CONSTRAINT buckets_versioning_status_check CHECK ((versioning_status = ANY (ARRAY['DISABLED'::text, 'ENABLED'::text, 'SUSPENDED'::text])))
 );
 
 
@@ -1862,7 +1888,10 @@ CREATE TABLE storage.objects (
     path_tokens text[] GENERATED ALWAYS AS (string_to_array(name, '/'::text)) STORED,
     version text,
     owner_id text,
-    user_metadata jsonb
+    user_metadata jsonb,
+    archived_at timestamp with time zone,
+    is_delete_marker boolean DEFAULT false NOT NULL,
+    is_versioned boolean DEFAULT false NOT NULL
 );
 
 
@@ -3107,6 +3136,34 @@ CREATE POLICY "catch photo owner update" ON storage.objects FOR UPDATE TO authen
 
 
 --
+-- Name: objects fw_uploads_delete; Type: POLICY; Schema: storage; Owner: -
+--
+
+CREATE POLICY fw_uploads_delete ON storage.objects FOR DELETE TO authenticated USING (((bucket_id = 'uploads'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text)));
+
+
+--
+-- Name: objects fw_uploads_insert; Type: POLICY; Schema: storage; Owner: -
+--
+
+CREATE POLICY fw_uploads_insert ON storage.objects FOR INSERT TO authenticated WITH CHECK (((bucket_id = 'uploads'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text) AND ((storage.foldername(name))[2] = ANY (ARRAY['gear'::text, 'lure'::text, 'bait'::text, 'catch'::text, 'other'::text]))));
+
+
+--
+-- Name: objects fw_uploads_select; Type: POLICY; Schema: storage; Owner: -
+--
+
+CREATE POLICY fw_uploads_select ON storage.objects FOR SELECT TO authenticated USING (((bucket_id = 'uploads'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text)));
+
+
+--
+-- Name: objects fw_uploads_update; Type: POLICY; Schema: storage; Owner: -
+--
+
+CREATE POLICY fw_uploads_update ON storage.objects FOR UPDATE TO authenticated USING (((bucket_id = 'uploads'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))) WITH CHECK (((bucket_id = 'uploads'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text)));
+
+
+--
 -- Name: objects gear photo owner delete; Type: POLICY; Schema: storage; Owner: -
 --
 
@@ -3196,5 +3253,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 09IltrgAOK8GtVnmCeXKsM1siFQ9f3kLXdqyrhycKV50gYMZkgSBVZ3FZuKu2px
+\unrestrict 7EwwLTH2NJIf6C47CVaYJCPkaol9vxutCk9TOkdo1e0iOdCE5jZcHk7AgVzVtZu
 
