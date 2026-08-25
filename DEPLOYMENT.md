@@ -683,13 +683,21 @@ Sentry event with no further wiring -- see the note below. `beforeSend`/
 caught if it reaches a breadcrumb some other way) before anything leaves the
 browser.
 
+**Items 1 and 2 below are done (2026-08-25).** A Sentry project exists,
+`VITE_SENTRY_DSN` is confirmed set on both the Production and Preview
+environments of the `fishwizz` Cloudflare Pages project (verified via the
+API, not just assumed from the script exiting 0), and its ingest origin
+(`https://o4511973160845312.ingest.us.sentry.io`) is live in `connect-src`
+on the deployed site -- checked both in the built `dist/_headers` and in the
+actual response headers from `https://fishwizz-e7d.pages.dev/`. The bundle
+also carries the real DSN, confirming `npm run build` picked it up from
+`.env` via `scripts/cf-setup-pages.ps1`'s new `Get-DotEnvVar` helper (which
+also fixed a pre-existing bug: `$env:$Name` is not valid PowerShell variable
+expansion, so the old Turnstile-only version of this lookup silently never
+worked from the shell env, only from `.env`).
+
 **Still needed from you 🔑:**
 
-1. Create a Sentry project, set `VITE_SENTRY_DSN` in Cloudflare Pages'
-   environment variables.
-2. Add that project's ingest origin to `connect-src` in
-   `public/_headers.template` -- it's per-org, so it isn't pre-added the way
-   Turnstile's fixed `challenges.cloudflare.com` origin is.
 3. Edge Functions still need their own Sentry wiring (server-side, not part
    of this pass) -- Deno's `Sentry.captureException` in a top-level
    try/catch per function.
@@ -735,6 +743,6 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 | `spatial.js` | **Done 2026-08-25**, as its own change per this row's original instruction. Confirmed genuinely unreferenced anywhere (not in the LEGACY chain, not in any `pwa.js` group) before touching it. Added to `pwa.js`'s `mission` group alongside the other Mission-page enhancement modules -- renders a "Spatial Mentor" card (compass bearing to the selected water, first-cast/second-cast guidance, wind relation) after `#planSummary` once a position and water are both selected. Verified end-to-end in a live dev server: loads with no console errors, correct placeholder with no position selected, and correct bearing math with one (58.1° computed for a real coordinate pair, bucketed to the right compass direction) |
 | `OPENAI_API_KEY` / `ATLAS_AI_MODEL` | **Declined by choice (2026-08-25), to minimize cost.** A key was generated and verified to authenticate correctly, but the OpenAI account has no funded API credits (ChatGPT subscription doesn't cover API usage -- separate billing). User chose not to add credits rather than pursue it further. `ask-atlas` stays in its rules-based fallback -- verified working, not degraded -- until this is revisited. The model name given (`gpt-5.6-luna`) was never actually validated against a real request, since billing failed first; re-check it against a real model name at platform.openai.com/docs/models whenever this gets revisited. |
 | CAPTCHA (Turnstile) | Frontend wired, inert; needs a Turnstile account + site key + Supabase secret |
-| Monitoring (Sentry) | Client wired, inert; needs a Sentry account + DSN; Edge Functions have no monitoring yet regardless |
+| Monitoring (Sentry) | **Live as of 2026-08-25** -- DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin, confirmed in the deployed response headers and bundle. Edge Functions still have no monitoring (separate work, step 8 item 3). |
 | Transactional email (SMTP) | Needs an email provider account (recommended: Resend) -- signups still cap out on Supabase's built-in limiter until this is done |
 | DNS cutover / Cloudflare security hardening | Not started (step 4) |

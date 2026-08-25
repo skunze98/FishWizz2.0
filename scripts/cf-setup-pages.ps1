@@ -148,8 +148,21 @@ $proj = Invoke-CF "/accounts/$acct/pages/projects/$ProjectName" -AllowFail
 # ever attached to Git) -- this deploy uses direct upload, so the value that
 # actually ends up in the bundle comes from .env / the shell during the
 # `npm run build` below. Set here too so the two don't drift if that changes.
-$TurnstileSiteKey = if ($env:VITE_TURNSTILE_SITE_KEY) { $env:VITE_TURNSTILE_SITE_KEY }
-  elseif (Test-Path '.env') { ([regex]::Match((Get-Content '.env' -Raw), '(?m)^VITE_TURNSTILE_SITE_KEY=(\S*)$')).Groups[1].Value } else { '' }
+function Get-DotEnvVar {
+  param([string]$Name)
+  # $env:$Name is NOT valid PowerShell -- $env: only takes a literal token,
+  # not a variable expansion. [Environment]::GetEnvironmentVariable is the
+  # actual way to look one up by a name held in a variable.
+  $fromShell = [System.Environment]::GetEnvironmentVariable($Name)
+  if ($fromShell) { return $fromShell }
+  if (Test-Path '.env') {
+    $m = [regex]::Match((Get-Content '.env' -Raw), "(?m)^$Name=(\S*)`$")
+    if ($m.Success) { return $m.Groups[1].Value }
+  }
+  return ''
+}
+$TurnstileSiteKey = Get-DotEnvVar 'VITE_TURNSTILE_SITE_KEY'
+$SentryDsn        = Get-DotEnvVar 'VITE_SENTRY_DSN'
 
 $envVars = @{
   VITE_SUPABASE_URL  = @{ type = 'plain_text'; value = $ProdUrl }
@@ -165,6 +178,13 @@ if ($TurnstileSiteKey) {
   # currently enforced against the one merged project either way.
   $envVars.VITE_TURNSTILE_SITE_KEY = @{ type = 'plain_text'; value = $TurnstileSiteKey }
   $previewVars.VITE_TURNSTILE_SITE_KEY = @{ type = 'plain_text'; value = $TurnstileSiteKey }
+}
+if ($SentryDsn) {
+  # A Sentry DSN identifies where events go, same threat model as the
+  # Supabase URL above -- it authorizes nothing by itself. The value that
+  # actually protects anything is server-side (Sentry's own project auth).
+  $envVars.VITE_SENTRY_DSN = @{ type = 'plain_text'; value = $SentryDsn }
+  $previewVars.VITE_SENTRY_DSN = @{ type = 'plain_text'; value = $SentryDsn }
 }
 $deployCfg = @{
   production = @{ env_vars = $envVars }
