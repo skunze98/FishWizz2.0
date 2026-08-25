@@ -23,8 +23,17 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectName = 'fishwizz'
 $Hostname    = 'app.fishwizz.com'
-$ProdUrl     = 'https://usanapexwjssjscmdjwv.supabase.co'
-$ProdKey     = 'sb_publishable_8tYJUy-EeJS1jsXSyb90Bw_Rr1Hg2ck'
+# usanapexwjssjscmdjwv was meant to be a separate, empty production project
+# (see DEPLOYMENT.md's original Environments table) but the account it was
+# created under turned out to be inaccessible, and the Supabase plan in use
+# only allows one project. Production and Preview now BOTH point at the
+# staging project -- already hardened, already holding the real beta data --
+# rather than at a second project that was never reachable. This is a
+# deliberate, accepted tradeoff (recorded in DEPLOYMENT.md), not an oversight:
+# every preview deploy and local `npm run dev` now shares the same database
+# as real public traffic.
+$ProdUrl     = 'https://doddeferfxzgdmzadibq.supabase.co'
+$ProdKey     = 'sb_publishable_aRBM4TvuGEUAdOZazPoZLw_CXdoEtpp'
 $StageUrl    = 'https://doddeferfxzgdmzadibq.supabase.co'
 $StageKey    = 'sb_publishable_aRBM4TvuGEUAdOZazPoZLw_CXdoEtpp'
 
@@ -209,21 +218,18 @@ if (-not (Test-Path 'dist\index.html')) {
   Write-Host '  dist/ is missing or empty.' -ForegroundColor Red
   exit 1
 }
-# Confirm the build we are about to ship is the PRODUCTION one. Shipping a
-# staging-configured bundle to app.fishwizz.com would point real users at the
-# beta database.
+# Confirm the build we are about to ship targets $ProdUrl (now the staging
+# project, deliberately -- see the comment where $ProdUrl is set above) and
+# not some other origin from a stale or half-configured .env.
 $bundle = Get-ChildItem 'dist\assets' -Filter 'main.*.js' -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($bundle) {
   $content = Get-Content $bundle.FullName -Raw
-  if ($content -match 'doddeferfxzgdmzadibq') {
-    Write-Host '  !! dist/ was built against STAGING. Rebuild with production env vars.' -ForegroundColor Red
+  $prodRef = ([regex]::Match($ProdUrl, 'https://([a-z0-9]+)\.supabase\.co')).Groups[1].Value
+  if ($content -notmatch [regex]::Escape($prodRef)) {
+    Write-Host "  !! dist/ contains no $prodRef Supabase origin. Rebuild." -ForegroundColor Red
     exit 1
   }
-  if ($content -notmatch 'usanapexwjssjscmdjwv') {
-    Write-Host '  !! dist/ contains no production Supabase origin. Rebuild.' -ForegroundColor Red
-    exit 1
-  }
-  Write-Host '    verified: bundle targets production Supabase'
+  Write-Host '    verified: bundle targets the intended Supabase project'
 }
 
 $env:CLOUDFLARE_ACCOUNT_ID = $acct
@@ -250,9 +256,12 @@ Write-Host @"
 
 Deployed. Next, and this is NOT optional for sign-in to work:
 
-  Supabase (PRODUCTION project) -> Authentication -> URL Configuration
+  Supabase (doddeferfxzgdmzadibq -- the only project; see the comment on
+  `$ProdUrl` above) -> Authentication -> URL Configuration
     Site URL:       https://$Hostname
     Redirect URLs:  https://$Hostname/**
+    (add this ALONGSIDE the existing staging/preview redirect URLs --
+    do not replace them, or preview deploys and local dev stop working)
 
   Google Cloud -> OAuth client -> Authorized JavaScript origins
     https://$Hostname

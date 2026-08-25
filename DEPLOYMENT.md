@@ -9,26 +9,69 @@ consent screen needs published legal URLs.
 
 ---
 
-## Environments
+## Environments — UPDATED 2026-08-25: down to one Supabase project
 
-| | Supabase project | Serves |
-|---|---|---|
-| **Production** | `usanapexwjssjscmdjwv.supabase.co` | `app.fishwizz.com` |
-| **Staging** | `doddeferfxzgdmzadibq.supabase.co` | preview deploys and local dev |
+The original plan (recorded below in "the production project is empty" for
+history, not as current instructions) was two projects: an empty
+`usanapexwjssjscmdjwv` for production, `doddeferfxzgdmzadibq` for staging.
+That fell apart on two independent problems, discovered while actually
+running provisioning:
 
-The app and the marketing site are two separate Cloudflare Pages projects:
-the app (this repo, `npm run build` → `dist/`) deploys to `app.fishwizz.com`
-via `scripts/cf-setup-pages.ps1`; the marketing site (`marketing/`) deploys
-to `www.fishwizz.com` via `scripts/cf-setup-marketing.ps1`. Keep that straight
-in every step below — attaching `www.fishwizz.com` to the app's Pages project,
-or registering it as the app's origin with Google/Supabase, points real
-traffic and OAuth at the wrong project.
+1. **`usanapexwjssjscmdjwv` turned out to be inaccessible.** Neither the
+   dashboard nor a fresh personal access token could see it -- it was created
+   under a different Supabase login than the one now in use, and that login
+   is gone. `supabase projects list` with a token from the current account
+   shows exactly one project.
+2. **The Supabase plan in use only allows one project anyway**, which would
+   have blocked creating a fresh replacement even without problem 1.
 
-Nothing in the code names either project — the URL and key come from
-`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON` at build time. Switching environments
-is a config change.
+**Decision: `doddeferfxzgdmzadibq` is now both staging and production.**
+`app.fishwizz.com` and every preview deploy point at the same project, using
+the same publishable key. This is a real, accepted tradeoff, not a bug:
 
-### The production project is empty
+- **Local dev and preview deploys now share a database with real public
+  traffic.** The "`.env` points at staging so local dev is never one typo
+  away from production" guarantee described below no longer holds, because
+  there is no longer a separate production to be a typo away from. Be more
+  careful with anything run locally against `.env` than this file used to
+  advise.
+- **No provisioning was needed** -- `doddeferfxzgdmzadibq` was already
+  hardened and verified (55/55 cross-tenant checks, see step 2's status
+  notes) before this decision, so nothing in that work was wasted or needs
+  redoing.
+- **Real beta data carries forward automatically.** No "sorry, your history
+  doesn't move to production" conversation with existing testers.
+- If a real second project ever becomes available (plan upgrade, or recovered
+  access to the original account), splitting them back apart means: create
+  the project, run `scripts/capture-staging.ps1` then
+  `scripts/provision-production.ps1` against it (both already written for
+  exactly this), then revert the `$ProdUrl`/`$ProdKey` values in
+  `scripts/cf-setup-pages.ps1` to point at it instead of staging.
+
+The app and the marketing site are still two separate Cloudflare Pages
+projects: the app (this repo, `npm run build` → `dist/`) deploys to
+`app.fishwizz.com` via `scripts/cf-setup-pages.ps1`; the marketing site
+(`marketing/`) deploys to `www.fishwizz.com` via
+`scripts/cf-setup-marketing.ps1`. Keep that straight in every step below —
+attaching `www.fishwizz.com` to the app's Pages project, or registering it as
+the app's origin with Google/Supabase, points real traffic and OAuth at the
+wrong project.
+
+Nothing in the code names the project — the URL and key come from
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON` at build time.
+
+Supabase Auth's `site_url` and `uri_allow_list` on `doddeferfxzgdmzadibq` were
+updated via the Management API to include `https://app.fishwizz.com` alongside
+the existing staging/preview entries (not replacing them) -- see step 6d,
+which otherwise still describes this as if it were a separate project's
+settings; read "the production project" there as "this same project."
+
+The build fails if the origin in the CSP disagrees with the origin baked into
+the bundle. A half-changed environment would otherwise ship an app whose every
+API call is blocked by `connect-src` — which looks like an outage rather than
+a config mistake.
+
+### The production project is empty (historical -- see the update above)
 
 I probed both projects with their publishable keys. **`usanapexwjssjscmdjwv` has
 no schema at all.** Every table returns the identical
@@ -53,11 +96,6 @@ Two rules that keep this safe:
 - **`.env` points at staging**, so local development is never one typo away from
   production data.
 
-The build fails if the origin in the CSP disagrees with the origin baked into the
-bundle. A half-changed environment would otherwise ship an app whose every API
-call is blocked by `connect-src` — which looks like an outage rather than a
-config mistake.
-
 ---
 
 ## 0. Local build
@@ -81,33 +119,17 @@ from coming back.
 
 ---
 
-## 1. Cloudflare Pages 🔑
+## 1. Cloudflare Pages — DONE (2026-08-25)
 
-Create a Pages project connected to `skunze98/Atlas-Fishing-OS`:
+`scripts/cf-setup-pages.ps1` did this end to end: created the `fishwizz` Pages
+project, set both the Production and Preview environment variables, built,
+deployed via `wrangler pages deploy` (direct upload, not a GitHub connection —
+see the script's own header for why: the Cloudflare GitHub App is an OAuth
+install the API can't do on your behalf), and attached `app.fishwizz.com`.
+Re-run it any time to redeploy; it's idempotent.
 
-| Setting | Value |
-|---|---|
-| Production branch | `main` |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Node version | `20` or newer |
-
-Under **Settings → Environment variables**, set the two environments to *different
-projects*. This is the whole point of the Pages Production/Preview split — every
-preview deploy and every branch automatically exercises staging, and only `main`
-touches production.
-
-**Production environment** (branch `main`):
-
-```
-VITE_SUPABASE_URL=https://usanapexwjssjscmdjwv.supabase.co
-VITE_SUPABASE_ANON=sb_publishable_8tYJUy-EeJS1jsXSyb90Bw_Rr1Hg2ck
-```
-
-(Key verified against the project: it authenticates to `usanapexwjssjscmdjwv`
-and is correctly rejected by staging.)
-
-**Preview environment** (every other branch):
+Because of the single-project decision above, **both environments now carry
+the same values**:
 
 ```
 VITE_SUPABASE_URL=https://doddeferfxzgdmzadibq.supabase.co
@@ -117,13 +139,15 @@ VITE_SUPABASE_ANON=sb_publishable_aRBM4TvuGEUAdOZazPoZLw_CXdoEtpp
 The publishable key is public by design — it identifies the project, it doesn't
 authorize anything. Row Level Security (step 2) is what protects the data.
 
+If a second project becomes available later and these get split back apart
+(see the note under Environments above), restore the Production
+Branch/Build-command/Output-directory settings a from-scratch dashboard
+project would need — `main`, `npm run build`, `dist`, Node 20+ — and give
+Production its own distinct values again.
+
 If you want a stable staging URL rather than per-commit preview URLs, add
 `staging.fishwizz.com` as a custom domain bound to a long-lived `staging` branch.
 It picks up the Preview environment variables automatically.
-
-**Do not test production on a `*.pages.dev` production URL and assume it's
-harmless** — the production deploy talks to the production database regardless of
-which hostname you reached it through.
 
 Verify on the `*.pages.dev` URL before touching DNS:
 
@@ -207,9 +231,15 @@ yet to audit). Once it's provisioned from the same schema and the same
 migration, its posture will match staging's, but confirm with `report.sql`
 after provisioning rather than assuming.
 
-**a2. Provision production.** Production is empty, so there is nothing to harden
-there yet. Two scripts do this; the CLI is pinned as a devDependency, so no
-global install.
+**a2. Provision production — SKIPPED, not needed.** Per the Environments update
+above, there is no longer a separate empty production project to provision;
+`doddeferfxzgdmzadibq` already carries the schema and the hardening migration.
+The two scripts below (`capture-staging.ps1`, `provision-production.ps1`) are
+kept and were both exercised and fixed on 2026-08-25 (the latter had a stale
+hardcoded migration filename that silently skipped two real migrations --
+fixed to apply every file in `supabase/migrations/` instead) so they're ready
+to use if a second project ever becomes available. Read on for how they work,
+but there is currently nothing to run here.
 
 **First, authenticate once** with a personal access token from
 <https://supabase.com/dashboard/account/tokens>:
@@ -283,10 +313,12 @@ rather than re-creating them.)
   data, Nominatim for place search) and need no secret at all. Without it,
   `ask-atlas` deploys fine and then silently falls back to its rules-based
   answer instead of an AI one — not a hard failure, but worth knowing which
-  mode you're getting.
+  mode you're getting. **This is a live, current gap on `doddeferfxzgdmzadibq`
+  right now**, not just future-provisioning scaffolding -- set it there today
+  if AI-powered answers matter:
   ```powershell
-  npx supabase secrets set OPENAI_API_KEY=... --project-ref usanapexwjssjscmdjwv
-  npx supabase secrets set ATLAS_AI_MODEL=... --project-ref usanapexwjssjscmdjwv
+  npx supabase secrets set OPENAI_API_KEY=... --project-ref doddeferfxzgdmzadibq
+  npx supabase secrets set ATLAS_AI_MODEL=... --project-ref doddeferfxzgdmzadibq
   ```
 - **Auth configuration.** Site URL, redirect allow-list, Google provider, rate
   limits, Turnstile — steps 2d and 6d. These differ per project; copying
@@ -410,9 +442,29 @@ of PostgREST. It costs a hop and a moving part; don't build it pre-emptively.
 
 ## 5. Turnstile 🔑
 
-Create a Turnstile widget for `fishwizz.com`. Put the **secret** in Supabase
-(step 2d) — that's what enforces it on the auth endpoints themselves rather than
-just in the UI, which is what makes it worth doing.
+**Frontend side is done.** `src/runtime/turnstile.js` renders a Turnstile
+widget above the Log In / Create account buttons and passes its token as
+`captchaToken` on both `signInWithPassword` and `signUp`. It's driven entirely
+by `VITE_TURNSTILE_SITE_KEY`: blank (the default), it loads no script and
+sends no token, so it's already deployed and inert. Verified end-to-end
+locally with Cloudflare's public always-pass test site key
+(`1x00000000000000000000AA`) — widget rendered, challenge auto-passed, token
+reached the API call.
+
+**Still needed from you 🔑:**
+
+1. Create a Turnstile widget for `fishwizz.com` in the Cloudflare dashboard.
+2. Set `VITE_TURNSTILE_SITE_KEY` (the **site** key, not the secret) in
+   Cloudflare Pages' environment variables alongside the Supabase ones from
+   step 1 -- it's public by design, same as the Supabase publishable key.
+3. Put the **secret** key in Supabase (step 2d) -- that's what enforces it on
+   the auth endpoints themselves rather than just in the UI, which is what
+   makes it worth doing. The frontend change above is necessary but not
+   sufficient without this.
+
+The CSP (`public/_headers.template`) already allows
+`https://challenges.cloudflare.com` for `script-src`/`frame-src` -- the one
+deliberate third-party origin in the policy, added for this reason alone.
 
 ---
 
@@ -424,19 +476,15 @@ just in the UI, which is what makes it worth doing.
 | Field | Value |
 |---|---|
 | Authorized JavaScript origins | `https://app.fishwizz.com`, plus `https://staging.fishwizz.com` if you add one |
-| Authorized redirect URIs | `https://usanapexwjssjscmdjwv.supabase.co/auth/v1/callback` **and** `https://doddeferfxzgdmzadibq.supabase.co/auth/v1/callback` |
+| Authorized redirect URIs | `https://doddeferfxzgdmzadibq.supabase.co/auth/v1/callback` |
 
 **The redirect URI is the Supabase callback, not your app URL.** This is the
 single most common way this is misconfigured.
 
-**Both project callbacks go on one OAuth client.** Google allows multiple
-authorized redirect URIs, so a single client covers production and staging. If
-you register only the production one, Google sign-in works on `app` and fails on
-every preview deploy with `redirect_uri_mismatch` — which reads like a code bug
-and isn't.
-
-Then enable the provider in **both** Supabase projects (step 6c), pasting the
-same Client ID and Secret into each.
+Only one project's callback exists to register now (see the Environments
+update near the top of this file) -- if a real separate production project
+ever gets provisioned later, add its callback here too rather than replacing
+this one; Google allows multiple redirect URIs on one client.
 
 **OAuth consent screen:** external, app name FishWizz, support email, privacy
 policy `https://app.fishwizz.com/privacy.html`, terms
@@ -447,29 +495,32 @@ already links there. Request only `email`, `profile`, `openid`
 must resolve. Publish it (leaving it in Testing caps you at 100 users and expires
 refresh tokens after 7 days).
 
-**6c. Supabase → Authentication → Providers → Google:** enable in **both**
-projects, pasting the same Client ID and Secret into each.
+**6c. Supabase → Authentication → Providers → Google:** enable on
+`doddeferfxzgdmzadibq`, pasting in the Client ID and Secret.
 
-**6d. Supabase → Authentication → URL Configuration** — these differ per project,
-and getting them backwards is how a staging sign-in silently redirects a tester
-into production:
+**6d. Supabase → Authentication → URL Configuration — partially done.** With one
+project now serving both roles, this is one set of settings, not two per-project
+sets. `site_url` and `uri_allow_list` were already updated via the Management
+API on 2026-08-25 to add `app.fishwizz.com` alongside the existing staging/
+preview entries (not replacing them):
 
-*Production project (`usanapexwjssjscmdjwv`):*
+- Site URL: `https://app.fishwizz.com` (was the staging Pages URL; changed
+  because `{{ .SiteURL }}` in email templates should point real users at the
+  real app)
+- Redirect URLs (current): `https://staging.fishwizz-e7d.pages.dev/**`,
+  `https://*.fishwizz-e7d.pages.dev/**`, `https://app.fishwizz.com/**`
 
-- Site URL: `https://app.fishwizz.com`
-- Redirect URLs: `https://app.fishwizz.com/**`, and `https://localhost/**` (the
-  Capacitor origin, for the mobile wrappers)
+**Still needed by hand:** add `https://localhost/**` for the Capacitor mobile
+wrapper, and `http://localhost:5173/**` / `http://localhost:4173/**` for local
+dev, if not already covered.
 
-*Staging project (`doddeferfxzgdmzadibq`):*
-
-- Site URL: `https://staging.fishwizz.com` if you add one, otherwise your Pages
-  preview domain
-- Redirect URLs: `https://staging.fishwizz.com/**`,
-  `https://<your-project>.pages.dev/**` (covers preview deploys),
-  `http://localhost:5173/**` and `http://localhost:4173/**` for local dev
-
-Keep `localhost` out of the production project's allow-list. It is the one entry
-that lets a locally-running page complete a real production sign-in.
+**The tradeoff this creates, stated plainly:** because it's the same project,
+anyone running the app locally against `.env` (which points here) or from a
+preview deploy can now complete a sign-in that is indistinguishable from a
+real production sign-in -- there is no separate project left to keep
+`localhost` out of. This is the direct consequence of the single-project
+decision, not a new mistake; see the Environments section for the full
+tradeoff.
 
 ### One decision to make: PKCE vs. email confirmation
 
@@ -478,14 +529,27 @@ device** fails, because the code verifier lives in the originating browser. A
 user who signs up on a laptop and opens the email on their phone will hit an
 error.
 
-Recommended fix: change the Supabase **Confirm signup** email template to
+**Runtime side is done.** `src/runtime/index.js` now calls
+`supabase.auth.verifyOtp({ token_hash, type })` on boot whenever the URL
+carries `?token_hash=...&type=...`, before the legacy scripts run. It handles
+both outcomes: on success it shows "Email confirmed" and opens the Mission
+page; on an expired/reused link it shows a plain-language error in the global
+status bar (visible on every page, not just Account) and tells the user to
+try signing in or re-registering. Verified against the real Supabase endpoint
+with a deliberately bogus token — got back a real `403 otp_expired` and
+surfaced it correctly. If the URL carries no `token_hash`, this is a total
+no-op, so it's safe to ship ahead of the template change below.
+
+**Still needed from you 🔑:** change the Supabase **Confirm signup** email
+template to
 
 ```
 {{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=email
 ```
 
-and I'll add the matching `verifyOtp()` call to the runtime. That's
-device-independent and correct. The alternatives — disabling email confirmation
+Until that template change is made, confirmation links keep using the old
+PKCE `?code=` format and this new code path is simply never triggered — no
+risk in deploying it early. The alternatives — disabling email confirmation
 for the beta, or switching to implicit flow (which puts tokens in the URL
 fragment) — are both worse.
 
@@ -562,19 +626,41 @@ Only then tighten SPF to `-all` and raise DMARC to `p=quarantine`.
 ---
 ## 8. Monitoring 🔑
 
-Sentry (npm, now that there's a build step) for client JS and Edge Functions,
-plus UptimeRobot or Cloudflare Health Checks.
+**Client-side JS side is done.** `src/runtime/sentry.js` (`@sentry/browser`,
+now a real dependency) initializes only when `VITE_SENTRY_DSN` is set --
+blank, it's a complete no-op, no script load, no network, safe to have
+shipped ahead of this step. It registers `captureConsoleIntegration`, so
+every `console.error(...)` already scattered through `public/` becomes a
+Sentry event with no further wiring -- see the note below. `beforeSend`/
+`beforeBreadcrumb` scrub latitude, longitude, user email, and the
+`fishwizz.auth` session (by storage-key name and by JWT shape, so it's still
+caught if it reaches a breadcrumb some other way) before anything leaves the
+browser.
 
-**`beforeSend` must scrub latitude, longitude, user email, and the
-`fishwizz.auth` localStorage key.** This app handles precise GPS; leaking
-coordinates to a third party would contradict the privacy policy on day one.
+**Still needed from you 🔑:**
 
-Also worth doing in the same pass: the 13 bare `catch{}` blocks across
-`account-isolation.js` (×4), `gear-catalog.js`, `inventory-pro.js` (×2),
-`mission-condition-qa.js`, `mission-inventory-fit.js`, `mission-v3.js`,
-`onboarding.js`, `session-pro.js` and `water-brief.js` swallow failures —
-including authorization failures — so monitoring won't see them until they're
-logged.
+1. Create a Sentry project, set `VITE_SENTRY_DSN` in Cloudflare Pages'
+   environment variables.
+2. Add that project's ingest origin to `connect-src` in
+   `public/_headers.template` -- it's per-org, so it isn't pre-added the way
+   Turnstile's fixed `challenges.cloudflare.com` origin is.
+3. Edge Functions still need their own Sentry wiring (server-side, not part
+   of this pass) -- Deno's `Sentry.captureException` in a top-level
+   try/catch per function.
+4. UptimeRobot or Cloudflare Health Checks for uptime, separate from error
+   monitoring.
+
+The 13 bare `catch{}` blocks this note used to list (`account-isolation.js`
+×4, `gear-catalog.js`, `inventory-pro.js` ×2, `mission-condition-qa.js`,
+`mission-inventory-fit.js`, `mission-v3.js`, `onboarding.js`, `session-pro.js`,
+`water-brief.js`) are fixed -- a fresh sweep found 5 of those 9 files had
+already picked up logging in other commits since this was written, and found
+5 more silent ones this list never named (`angler-profile.js`, `today.js` x2,
+`waters-pro.js` x2, `water-search.js` x2) plus 3 that were dead code
+(bare-identifier writes a non-strict classic script can never actually throw)
+removed outright rather than logged. All now follow the same
+`console.error('FishWizz: ...', e)` convention, which is exactly what
+`captureConsoleIntegration` above picks up.
 
 Run a full week under monitoring before submitting to either app store.
 
@@ -595,8 +681,14 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 
 ## Still open
 
-| Item | Why it's not done |
+| Item | Status |
 |---|---|
-| `report.sql` output | Needs your Supabase access; the migration's section 6 depends on it |
+| `report.sql` output | **Done 2026-08-25** -- ran clean against `doddeferfxzgdmzadibq`. RLS enabled on all 28 real tables, exactly one tightly owner-scoped policy each (`owns_row()`/`auth.uid()`), `spatial_ref_sys` the one documented PostGIS exception. All 4 storage buckets private, including `uploads` (see below). No new gaps found; matches the posture already documented in step 2. |
+| The `uploads` storage bucket | Confirmed real (not just orphaned policies) and correctly private, with the same size/mime-type limits as the other three -- but unreferenced anywhere in the app code. Harmless as-is; low-priority cleanup (drop it, or wire it in) whenever someone remembers what it was for. |
 | Legal review | Needs a lawyer |
 | `spatial.js` | Dead since a rename; it has **never executed in production**. Wiring it in belongs in its own change, not a hosting migration |
+| `OPENAI_API_KEY` / `ATLAS_AI_MODEL` | Not set on `doddeferfxzgdmzadibq` (confirmed via `supabase secrets list`) -- `ask-atlas` is live but running in rules-based fallback, not AI-powered, until these are set |
+| CAPTCHA (Turnstile) | Frontend wired, inert; needs a Turnstile account + site key + Supabase secret |
+| Monitoring (Sentry) | Client wired, inert; needs a Sentry account + DSN; Edge Functions have no monitoring yet regardless |
+| Transactional email (SMTP) | Needs an email provider account (recommended: Resend) -- signups still cap out on Supabase's built-in limiter until this is done |
+| DNS cutover / Cloudflare security hardening | Not started (step 4) |
