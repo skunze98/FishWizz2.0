@@ -240,7 +240,7 @@
   const typeFromForm=form=>/Add rod/i.test(form.textContent)?'rod':/Add reel/i.test(form.textContent)?'reel':'tackle';
   const values=form=>[...form.querySelectorAll('[data-mf]')];
 
-  function recent(){try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'{}')}catch{return{}}}
+  function recent(){try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'{}')}catch(e){console.error('FishWizz: could not read recent gear list',e);return{}}}
   function remember(type,brand,model){if(!brand&&!model)return;const all=recent(),rows=all[type]||[],next=[{brand,model},...rows.filter(x=>norm(x.brand)!==norm(brand)||norm(x.model)!==norm(model))].slice(0,8);all[type]=next;try{localStorage.setItem(RECENT_KEY,JSON.stringify(all))}catch(e){console.error('FishWizz: could not save recent gear list',e)}}
   function score(label,q){const a=norm(label),b=norm(q);if(!b)return 10;if(a===b)return 100;if(a.startsWith(b))return 80;if(a.includes(b))return 60;const tokens=b.split(/\s+/).filter(Boolean);return tokens.every(t=>a.includes(t))?40:0}
 

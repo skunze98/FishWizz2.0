@@ -98,7 +98,8 @@
       const rows = await catalogSearch(q, 16);
       if (seq !== suggestSeq || q !== input.value.trim()) return;
       renderSuggestions(preciseRows(rows, q, MAX_SUGGESTIONS));
-    } catch {
+    } catch (e) {
+      console.error('FishWizz: water suggestion search failed', e);
       if (seq === suggestSeq) renderSuggestions([]);
     }
   }
@@ -125,7 +126,8 @@
         if (seq !== searchSeq) return;
         official = d.waters || [];
         if (d.failures?.length) warning = 'Some official sources were unavailable. FishWizz also checked its indexed catalog.';
-      } catch {
+      } catch (e) {
+        console.error('FishWizz: official water catalog search failed', e);
         if (seq !== searchSeq) return;
         warning = 'The official catalog did not respond. FishWizz used its indexed catalog.';
       }
