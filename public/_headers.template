@@ -12,7 +12,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(self)
   Cross-Origin-Opener-Policy: same-origin-allow-popups
-  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://services.arcgisonline.com; connect-src 'self' %SUPABASE_ORIGIN%; worker-src 'self'; manifest-src 'self'
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://services.arcgisonline.com; connect-src 'self' %SUPABASE_ORIGIN%; worker-src 'self'; manifest-src 'self'
 
 # Notes on the policy above:
 #
@@ -27,10 +27,15 @@
 # No 'unsafe-eval' anywhere: verified there is no eval() and no new Function()
 # in the tree.
 #
-# script-src is 'self' with no third-party origins at all: Leaflet is bundled
-# from npm rather than loaded from unpkg. That closes the CDN-integrity gap
-# outright -- there is no external script to substitute or fail to load, and no
-# SRI hash to maintain.
+# script-src and frame-src both carry one third-party origin,
+# challenges.cloudflare.com, for Turnstile (DEPLOYMENT.md step 5):
+# script-src loads its widget script, frame-src lets it render the challenge
+# iframe. Leaflet is still bundled from npm rather than loaded from unpkg, so
+# this is deliberately the only external script origin, added for exactly one
+# reason (CAPTCHA cannot run same-origin) rather than accumulated by habit.
+# src/runtime/turnstile.js only loads this script at all when
+# VITE_TURNSTILE_SITE_KEY is set, so until step 5 is done, granting the
+# origin here has no observable effect.
 #
 # The remaining external origins are img-src only (map tiles), which cannot
 # execute code.

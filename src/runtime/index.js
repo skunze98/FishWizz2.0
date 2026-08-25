@@ -13,8 +13,14 @@
  * lazy loader, which was tuned for iPhone startup stability (commits c1e8a7c,
  * 3f03ac8) -- worth matching rather than rediscovering.
  */
+import { initSentry } from './sentry.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js';
 import { makeApi } from './api.js';
+import { initTurnstile, captchaToken, resetTurnstile } from './turnstile.js';
+
+// First real line of the module: monitoring should be recording before
+// anything else here has a chance to throw. No-ops with no VITE_SENTRY_DSN.
+initSentry();
 
 // Leaflet is bundled rather than loaded from unpkg. That removes the last
 // third-party script origin -- so script-src can drop to 'self' -- and with it
@@ -100,9 +106,16 @@ window.fishwizzAuth = {
   client: supabase,
   ready: authReady,
   token: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
-  signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
+  // captchaToken() is undefined until both halves of Turnstile exist (a site
+  // key here, Attack Protection turned on in Supabase) -- Supabase ignores
+  // the field entirely until then, so this is safe ahead of that.
+  signIn: (email, password) =>
+    supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken() } }),
   signUp: (email, password) =>
-    supabase.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/' } }),
+    supabase.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: location.origin + '/', captchaToken: captchaToken() },
+    }),
   signInWithGoogle: () =>
     supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -124,6 +137,44 @@ async function importLegacySession() {
     }
   } catch (e) {
     console.warn('FishWizz: could not migrate the previous session', e);
+  }
+}
+
+// Device-independent email confirmation. With flowType: 'pkce' (see
+// supabase.js), the normal ?code= callback only works in the SAME browser
+// that started the signup, because the PKCE code verifier lives in that
+// browser's storage -- so a confirmation link opened on a phone after
+// signing up on a laptop fails outright. Supabase's token_hash link format
+// sidesteps PKCE entirely: verifyOtp() exchanges it for a session directly,
+// from whatever browser opens it. This only fires once the Supabase "Confirm
+// signup" email template (and invite/magic-link/recovery, if used) is
+// changed to `{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=email` --
+// undone, ?token_hash is just never present and this is a no-op.
+let pendingAuthMessage = null;
+
+async function completeEmailConfirmation() {
+  const q = new URLSearchParams(location.search);
+  const token_hash = q.get('token_hash');
+  const type = q.get('type');
+  if (!token_hash || !type) return;
+
+  // Strip the params before the exchange, not after: a token_hash is single
+  // -use, so if the tab is reloaded mid-flight (slow network, impatient
+  // refresh) it must not resubmit the same one.
+  history.replaceState({}, '', location.pathname);
+
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash, type });
+  if (error) {
+    console.error('FishWizz: email confirmation link failed', error);
+    pendingAuthMessage = {
+      kind: 'err',
+      title: 'This confirmation link no longer works',
+      body: 'It may have expired or already been used. Try signing in -- if that fails, create the account again to get a fresh link.',
+    };
+    return;
+  }
+  if (data.session) {
+    pendingAuthMessage = { kind: 'ok', title: 'Email confirmed', body: 'Your FishWizz account is ready.' };
   }
 }
 
@@ -186,9 +237,19 @@ function loadScript(src) {
   });
 }
 
+// Fire-and-forget: #turnstileWidget is already in index.html's static markup,
+// so this doesn't need to wait on anything else in boot, and nothing else
+// needs to wait on it -- a human has to type into the form before there's a
+// sign-in attempt for it to matter to.
+initTurnstile();
+
 (async () => {
   try {
     await importLegacySession();
+    // Runs before getSession() below so that, if the link carried a
+    // token_hash, the session it establishes is what getSession() then reads
+    // back -- same ordering guarantee the ?code= comment below relies on.
+    await completeEmailConfirmation();
     // Resolves only after detectSessionInUrl has exchanged any ?code= for a
     // session, so window.session is already populated when app.js first runs.
     _session = (await supabase.auth.getSession()).data.session ?? null;
@@ -225,6 +286,18 @@ function loadScript(src) {
   // The legacy chain has run, so INITIAL_SESSION has already been queued and
   // flushed above. Paint once more in case nothing fired.
   syncAuthUi(_session);
+
+  // Must run after the syncAuthUi() above, not inside rebindAuthControls():
+  // the queued INITIAL_SESSION callback (flushed a few lines up) calls
+  // syncAuthUi too, which repaints #status from the resolved session and
+  // would silently overwrite whatever rebindAuthControls() had just put
+  // there. #status has no per-message priority, only last-write-wins.
+  if (pendingAuthMessage) {
+    const { kind, title } = pendingAuthMessage;
+    pendingAuthMessage = null;
+    window.stat?.(title, kind === 'err' ? 'err' : kind === 'ok' ? 'ok' : '');
+    if (kind === 'ok') window.showPage?.('mission');
+  }
 })();
 
 // Supabase returns terse, lowercase, developer-facing strings. Shown verbatim
@@ -339,6 +412,7 @@ function rebindAuthControls() {
     if (!email()) { say('err', 'Enter your email', 'We need it to find your account.'); return {}; }
     if (!password()) { say('err', 'Enter your password', ''); return {}; }
     const r = await window.fishwizzAuth.signIn(email(), password());
+    resetTurnstile();   // the token just submitted is spent either way
     if (!r.error) { clearSay(); window.showPage?.('mission'); window.stat?.('Signed in.', 'ok'); }
     return r;
   }, 'signIn', 'Signing in…');
@@ -354,6 +428,7 @@ function rebindAuthControls() {
       say('err', 'Password is too short', 'Use at least 6 characters.'); return {};
     }
     const r = await window.fishwizzAuth.signUp(email(), password());
+    resetTurnstile();   // the token just submitted is spent either way
     if (!r.error) {
       if (r.data?.session) {
         clearSay();
@@ -391,4 +466,12 @@ function rebindAuthControls() {
         q.get('error_description')?.replace(/\+/g, ' ') || q.get('error'));
     history.replaceState({}, '', location.pathname);
   }
+
+  // Result of completeEmailConfirmation() above, deferred to here because
+  // #authMessage doesn't exist until index.html's markup is in the DOM. Only
+  // writes #authMessage (visible on the Account page); the top #status bar
+  // -- visible on every page -- is set later, in the boot IIFE, after the
+  // still-queued INITIAL_SESSION repaint would otherwise clobber it. Left
+  // set (not nulled) so that later call knows there's something to say.
+  if (pendingAuthMessage) say(pendingAuthMessage.kind, pendingAuthMessage.title, pendingAuthMessage.body);
 }
