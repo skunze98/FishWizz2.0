@@ -465,7 +465,10 @@ because the DELETE would remove account A's test row if RLS were broken.
 `public/privacy.html` and `public/terms.html` are drafted and live at
 `/privacy.html` and `/terms.html`.
 
-**They have not been legally reviewed.** Get a lawyer's pass on GDPR legal bases,
+**Legal review deliberately skipped for now (2026-08-25, user's call)** --
+the pages ship as drafted, unreviewed. A real risk for a real public launch
+with real user data; the user's own call to make and defer, not this
+session's to push back on. Get a lawyer's pass on GDPR legal bases,
 limitation of liability, and governing law (currently assuming Minnesota). Also
 create and monitor `privacy@fishwizz.com` and `support@fishwizz.com` — both are
 cited in the documents and Google checks that the privacy URL resolves.
@@ -639,6 +642,15 @@ inject `<style>` elements at runtime. Removing that is its own project.
 
 ## 7b. Transactional email (SMTP) — launch blocker
 
+**Deliberately skipped for now (2026-08-25, user's call).** The consequence
+was stated plainly before this was decided, not just silently accepted: real
+signups work at first (Supabase's built-in sender allows a couple emails/hour)
+and then start returning `429 email rate limit exceeded`, which looks like
+the app is broken rather than a config gap. Acceptable for a slow trickle of
+users landing at `fishwizz-e7d.pages.dev`, not for anything that should be
+called a real public launch. Revisit this before driving real traffic volume
+at the site — the steps below are unchanged and ready whenever that happens.
+
 Supabase`s built-in email sender allows only a couple of messages per hour and
 is explicitly not for production. Without custom SMTP most people who try to
 sign up simply cannot: the signup returns HTTP 429 `email rate limit exceeded`.
@@ -763,10 +775,10 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 |---|---|
 | `report.sql` output | **Done 2026-08-25** -- ran clean against `doddeferfxzgdmzadibq`. RLS enabled on all 28 real tables, exactly one tightly owner-scoped policy each (`owns_row()`/`auth.uid()`), `spatial_ref_sys` the one documented PostGIS exception. All 4 storage buckets private, including `uploads` (see below). No new gaps found; matches the posture already documented in step 2. |
 | The `uploads` storage bucket | Confirmed real (not just orphaned policies) and correctly private, with the same size/mime-type limits as the other three -- but unreferenced anywhere in the app code. Harmless as-is; low-priority cleanup (drop it, or wire it in) whenever someone remembers what it was for. |
-| Legal review | Needs a lawyer |
+| Legal review | **Deliberately skipped for now (2026-08-25, user's call).** Pages ship as drafted, unreviewed. Real risk for a real launch; deferred, not forgotten. |
 | `spatial.js` | **Done 2026-08-25**, as its own change per this row's original instruction. Confirmed genuinely unreferenced anywhere (not in the LEGACY chain, not in any `pwa.js` group) before touching it. Added to `pwa.js`'s `mission` group alongside the other Mission-page enhancement modules -- renders a "Spatial Mentor" card (compass bearing to the selected water, first-cast/second-cast guidance, wind relation) after `#planSummary` once a position and water are both selected. Verified end-to-end in a live dev server: loads with no console errors, correct placeholder with no position selected, and correct bearing math with one (58.1° computed for a real coordinate pair, bucketed to the right compass direction) |
 | `OPENAI_API_KEY` / `ATLAS_AI_MODEL` | **Declined by choice (2026-08-25), to minimize cost.** A key was generated and verified to authenticate correctly, but the OpenAI account has no funded API credits (ChatGPT subscription doesn't cover API usage -- separate billing). User chose not to add credits rather than pursue it further. `ask-atlas` stays in its rules-based fallback -- verified working, not degraded -- until this is revisited. The model name given (`gpt-5.6-luna`) was never actually validated against a real request, since billing failed first; re-check it against a real model name at platform.openai.com/docs/models whenever this gets revisited. |
 | CAPTCHA (Turnstile) | Frontend wired, inert; needs a Turnstile account + site key + Supabase secret |
 | Monitoring (Sentry) | **Live as of 2026-08-25** -- DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin, confirmed in the deployed response headers and bundle. Edge Functions still have no monitoring (separate work, step 8 item 3). |
-| Transactional email (SMTP) | Needs an email provider account (recommended: Resend) -- signups still cap out on Supabase's built-in limiter until this is done |
+| Transactional email (SMTP) | **Deliberately skipped for now (2026-08-25, user's call).** Signups cap out on Supabase's built-in limiter (a couple/hour) -- fine for a trickle of early users, not for real public traffic volume. Needs an email provider account (recommended: Resend) whenever this gets revisited. |
 | DNS cutover / Cloudflare security hardening | Not started (step 4) |
