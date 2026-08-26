@@ -10,6 +10,45 @@
  // (no search involved) leaves it null, which is the pre-existing behavior.
  const RIVERLIKE_RE=/\b(river|stream|creek|dam|lock|tailwater|weir|rapids|falls|channel)\b/i;
  function hintIsRiverlike(hint){if(!hint)return false;return RIVERLIKE_RE.test(`${hint.category||''} ${hint.type||''} ${hint.name||''}`)}
+ // P1-4: named-lake search resolution. atlas-place-search's geocoded point
+ // for a big, irregularly shaped lake (Minnetonka's many bays, Mendota's
+ // shoreline) is frequently nowhere near our own indexed centroid or even
+ // the real shoreline -- the point-nearest match below is doing its job
+ // correctly (it won't guess), it's just the wrong tool for "the user typed
+ // an exact, known lake name." Resolve those against the indexed catalog's
+ // own names/aliases first; only fall through to point-nearest when the
+ // catalog lookup can't confidently resolve one water, so a place that just
+ // happens to share a substring with a lake name is never force-matched.
+ const LAKELIKE_RE=/\blake\b/i;
+ function hintIsLakelike(hint){if(!hint)return false;const cat=String(hint.category||'').toLowerCase(),type=String(hint.type||'').toLowerCase();if(cat==='water'&&['lake','reservoir','pond'].includes(type))return true;return LAKELIKE_RE.test(hint.name||'')}
+ function normWaterName(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+ // Pure matcher, separated from the network call so it's directly testable
+ // (mirrors bestWater's split above). Deliberately conservative: an exact
+ // normalized-name match is required, and an ambiguous result (more than one
+ // same-named water, not narrowed to exactly one by the search hint's state)
+ // returns null rather than guessing -- "preserve the authoritative selected
+ // name as fallback" means the caller then falls through to the existing
+ // point-nearest flow unchanged, not that this function guesses.
+ function pickNamedWaterMatch(rows,hint){
+  if(!Array.isArray(rows)||!rows.length||!hint?.name)return null;
+  const target=normWaterName(hint.name.replace(/,.*/,''));
+  if(!target)return null;
+  const exact=rows.filter(w=>normWaterName(w.name)===target);
+  if(exact.length===1)return exact[0];
+  if(exact.length>1&&hint.state){const st=exact.filter(w=>String(w.state_code||'').toUpperCase()===String(hint.state).toUpperCase());if(st.length===1)return st[0]}
+  if(!exact.length&&rows.length===1)return rows[0];
+  return null;
+ }
+ async function resolveNamedWater(hint){
+  if(!hintIsLakelike(hint))return null;
+  const cleaned=String(hint?.name||'').replace(/,.*/,'').trim();
+  if(cleaned.length<3)return null;
+  try{
+   let path=`/rest/v1/waterbodies?select=id,name,state_code,water_type,latitude,longitude&name=ilike.*${encodeURIComponent(cleaned)}*&order=name.asc&limit=8`;
+   if(hint.state)path+=`&state_code=eq.${encodeURIComponent(hint.state)}`;
+   return pickNamedWaterMatch(await api(path),hint);
+  }catch{return null}
+ }
  // Map-wide depth filter (distinct from map-context.js's single-selected-water
  // depth panel): a Leaflet overlay layer, toggled from the map's own layer
  // control, that loads every DNR-surveyed lake's contours inside the current
@@ -87,7 +126,12 @@
  function clearWaterMarkers(){waterMarkers.forEach(m=>m.remove());waterMarkers=[]}
  function drawSelection(lat,lon){clickMarker?.remove();clickMarker=L.marker([lat,lon],{icon:icon('selected-pin',20),zIndexOffset:1000,draggable:true}).addTo(map).bindTooltip('Your exact fishing spot',{direction:'top'});clickMarker.on('dragend',e=>{const p=e.target.getLatLng();setFishingPosition(p.lat,p.lng,'map_tap',null,false)})}
  function clearResolvedWater(){window.selectedWater=null;if(!position)return;delete position.waterbody_id;delete position.water_name;delete position.water_type;delete position.state_code}
- function setFishingPosition(lat,lon,m='map_tap',accuracy=null,recenter=true,hint=null){if(!Number.isFinite(lat)||!Number.isFinite(lon))return;position={lat,lon,method:m,accuracy,selected_at:new Date().toISOString()};searchHint=hint;clearResolvedWater();drawSelection(lat,lon);updatePositionCard();if(recenter)map.flyTo([lat,lon],Math.max(map.getZoom(),15),{duration:.25});findNearby(lat,lon)}
+ // P1-4: directMatch, when the caller already confirmed a single indexed
+ // water by name (resolveNamedWater), skips the generic point-nearest search
+ // entirely rather than racing it -- the catalog match is authoritative, and
+ // the ordinary radius/confidence gate in findNearby doesn't apply to it.
+ function setFishingPosition(lat,lon,m='map_tap',accuracy=null,recenter=true,hint=null,directMatch=null){if(!Number.isFinite(lat)||!Number.isFinite(lon))return;position={lat,lon,method:m,accuracy,selected_at:new Date().toISOString()};searchHint=hint;clearResolvedWater();drawSelection(lat,lon);updatePositionCard();if(recenter)map.flyTo([lat,lon],Math.max(map.getZoom(),15),{duration:.25});if(directMatch)applyNamedMatch(directMatch);else findNearby(lat,lon)}
+ function applyNamedMatch(w){const row={id:w.id||null,name:w.name,state_code:w.state_code,water_type:w.water_type,latitude:Number(w.latitude),longitude:Number(w.longitude),distance_miles:0,match_type:'named_catalog_match'};nearbyRows=[row];renderResolved(row);selectNearby(0,true);stat(`Matched "${row.name}" from FishWizz's indexed water catalog.`,'ok')}
  function rankWater(w){const match=String(w.match_type||'').toLowerCase(),d=Number(w.distance_miles??999);let p=30;if(match==='on_water')p=0;else if(match==='very_close')p=1;else if(match==='cached')p=4;else p=3;const type=String(w.water_type||'').toLowerCase();const shorelineBias=/river|stream/.test(type)&&d<=.2?-0.2:0;return p*100+d+shorelineBias}
  // P0-3: a search explicitly for a river/dam/tailwater feature must not
  // resolve to a nearby lake just because it's geometrically closer --
@@ -111,7 +155,7 @@
  async function findNearby(lat,lon){ensureMap();const box=byId('mapResults');if(!session){if(box)box.innerHTML='<div class="map-note"><b>Spot saved.</b><br><span class="muted tiny">Sign in to identify the named water and use it in your Mission.</span></div>';stat('Spot selected. Sign in for water matching.','ok');return}const id=++requestId;if(box)box.innerHTML='<div class="map-note">Identifying the water at this exact spot…</div>';try{const data=await api('/functions/v1/atlas-nearby-waters',{method:'POST',body:JSON.stringify({lat,lon,radius_miles:5,refresh:false})});if(id!==requestId)return;const best=bestWater((data.waters||[]).filter(Boolean),searchHint);if(best){renderResolved(best);selectNearby(0,true);stat(`Matched to ${best.name}.`,'ok')}else if(searchHint?.name&&hintIsRiverlike(searchHint)){useSearchedLabel(lat,lon)}else{renderResolved(null);clearWaterMarkers();stat('No confident water match yet. Move the pin closer to the shoreline.','ok')}}catch(e){if(id!==requestId)return;if(box)box.innerHTML=`<div class="warning">${esc(e.message)}</div>`;stat(e.message,'err')}}
  function showGps(lat,lon,accuracy){gpsMarker?.remove();gpsAccuracyCircle?.remove();gpsMarker=L.marker([lat,lon],{icon:icon('water-marker exact',16),zIndexOffset:1200}).addTo(map).bindTooltip('Your location');gpsAccuracyCircle=L.circle([lat,lon],{radius:accuracy||10,color:'#4aa3ff',weight:1,fillOpacity:.05,interactive:false}).addTo(map)}
  function useLocation(){if(!navigator.geolocation)return stat('Location is not supported.','err');stat('Finding your location…');navigator.geolocation.getCurrentPosition(p=>{ensureMap();showGps(p.coords.latitude,p.coords.longitude,p.coords.accuracy);map.setView([p.coords.latitude,p.coords.longitude],p.coords.accuracy<=50?16:14);setFishingPosition(p.coords.latitude,p.coords.longitude,'gps_fix',p.coords.accuracy,false)},e=>stat(e.message||'Location permission was not granted.','err'),{enableHighAccuracy:true,timeout:15000,maximumAge:10000})}
- async function searchPlaces(){const q=byId('spotSearch')?.value.trim(),box=byId('spotSuggestions');if(!q||q.length<2)return;if(!session){stat('Sign in to search places and waters.','err');return}box.hidden=false;box.innerHTML='<div class="map-note">Searching…</div>';try{const data=await api('/functions/v1/atlas-place-search',{method:'POST',body:JSON.stringify({q})}),rows=(data.results||[]).slice(0,6);box.innerHTML=rows.length?rows.map((r,i)=>`<button class="suggestion" data-place="${i}" type="button"><b>${esc(r.name)}</b><br><span class="muted tiny">${esc(r.display_name)}</span></button>`).join(''):'<div class="map-note">No matching place found.</div>';box.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{const r=rows[Number(b.dataset.place)];box.hidden=true;byId('spotSearch').value=r.name;map.setView([r.latitude,r.longitude],15);setFishingPosition(r.latitude,r.longitude,'place_search',null,true,{name:r.name,category:r.category,type:r.type,state:r.state})})}catch(e){box.innerHTML=`<div class="warning">${esc(e.message)}</div>`}}
+ async function searchPlaces(){const q=byId('spotSearch')?.value.trim(),box=byId('spotSuggestions');if(!q||q.length<2)return;if(!session){stat('Sign in to search places and waters.','err');return}box.hidden=false;box.innerHTML='<div class="map-note">Searching…</div>';try{const data=await api('/functions/v1/atlas-place-search',{method:'POST',body:JSON.stringify({q})}),rows=(data.results||[]).slice(0,6);box.innerHTML=rows.length?rows.map((r,i)=>`<button class="suggestion" data-place="${i}" type="button"><b>${esc(r.name)}</b><br><span class="muted tiny">${esc(r.display_name)}</span></button>`).join(''):'<div class="map-note">No matching place found.</div>';box.querySelectorAll('[data-place]').forEach(b=>b.onclick=async()=>{const r=rows[Number(b.dataset.place)];box.hidden=true;byId('spotSearch').value=r.name;const hint={name:r.name,category:r.category,type:r.type,state:r.state};map.setView([r.latitude,r.longitude],15);const named=await resolveNamedWater(hint);setFishingPosition(r.latitude,r.longitude,'place_search',null,true,hint,named)})}catch(e){box.innerHTML=`<div class="warning">${esc(e.message)}</div>`}}
  if(typeof document!=='undefined'){
   window.AtlasMap={getMap:()=>map,getPosition:()=>position,setPosition:setFishingPosition,selectWater:selectNearby,refresh:()=>position&&findNearby(position.lat,position.lon)};
   document.addEventListener('DOMContentLoaded',()=>{ensureControls();ensureMap();byId('useLocation')?.addEventListener('click',useLocation);byId('spotSearchBtn')?.addEventListener('click',searchPlaces);byId('spotSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlaces()}});byId('spotSearch')?.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(byId('spotSearch').value.trim().length>=3)searchPlaces()},420)});document.querySelector('[data-page="waters"]')?.addEventListener('click',()=>setTimeout(()=>map?.invalidateSize(),80))});
@@ -119,5 +163,5 @@
  // Exposed only for scripts/test-p0-fixes.mjs, which imports this file for
  // its side effect and reads this namespace back -- see mission-why.js's own
  // comment on this same pattern for why it isn't module.exports.
- globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{map:{hintIsRiverlike,bestWater,rankWater}});
+ globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{map:{hintIsRiverlike,bestWater,rankWater,hintIsLakelike,pickNamedWaterMatch,normWaterName}});
 })();
