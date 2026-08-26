@@ -128,7 +128,7 @@ if (-not $list -or -not $list.success) {
     Write-Host '      Permissions:'
     Write-Host '        Account -> Cloudflare Pages -> Edit'
     Write-Host '      Account Resources:'
-    Write-Host "        Include -> the account 7d9f595d487674d0231766c993c3cc59"
+    Write-Host "        Include -> the account ff0315807c7e6e90d1dde91554555827"
     Write-Host ''
     Write-Host '    Both halves matter. Adding the permission while leaving Account'
     Write-Host '    Resources unset produces exactly this error.'
