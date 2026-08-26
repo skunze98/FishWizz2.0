@@ -111,6 +111,20 @@ Supabase Management API token (only the Cloudflare one, used for the
 read-only domain check above), so this is a dashboard action for the user,
 same as the other 🔑 items in step 6d.
 
+**Resolved, 2026-08-25 (later the same day).** The user supplied a fresh
+personal access token and a direct read against the Management API
+(`GET /v1/projects/doddeferfxzgdmzadibq/config/auth`) shows `site_url` is
+already `https://fishwizz-e7d.pages.dev`, and `uri_allow_list` already
+carries all four expected entries (`staging.fishwizz-e7d.pages.dev/**`,
+`*.fishwizz-e7d.pages.dev/**`, `fishwizz-e7d.pages.dev/**`,
+`app.fishwizz.com/**`). No PATCH was needed -- whatever set it back to the
+Pages URL after the "changed to `app.fishwizz.com`" edit mentioned above
+happened before this check, outside this session's own record. Read the
+regression above as historical: it was real when written, it is not real
+now. The token used for this check was a one-off, not saved anywhere in the
+repo or in `.env`, and the user was advised to revoke it from
+supabase.com/dashboard/account/tokens after use.
+
 If a real second project ever becomes available (plan upgrade, or recovered
 access to the original account), splitting them back apart means: create
   the project, run `scripts/capture-staging.ps1` then
@@ -524,16 +538,22 @@ locally with Cloudflare's public always-pass test site key
 (`1x00000000000000000000AA`) — widget rendered, challenge auto-passed, token
 reached the API call.
 
-**Still needed from you 🔑:**
+**Done, confirmed 2026-08-25.** All three items below turned out to already
+be complete, contradicting this section's own "still needed" framing --
+verified directly rather than assumed:
 
-1. Create a Turnstile widget for `fishwizz.com` in the Cloudflare dashboard.
-2. Set `VITE_TURNSTILE_SITE_KEY` (the **site** key, not the secret) in
-   Cloudflare Pages' environment variables alongside the Supabase ones from
-   step 1 -- it's public by design, same as the Supabase publishable key.
-3. Put the **secret** key in Supabase (step 2d) -- that's what enforces it on
-   the auth endpoints themselves rather than just in the UI, which is what
-   makes it worth doing. The frontend change above is necessary but not
-   sufficient without this.
+1. A real Turnstile widget exists (`VITE_TURNSTILE_SITE_KEY` in `.env` is
+   `0x4AAAAAAEbpjrC7KkmOi31L`, not the always-pass test key from local
+   verification above).
+2. That site key is live in the deployed bundle --
+   `https://fishwizz-e7d.pages.dev/assets/main.*.js` contains the literal
+   key string, confirming `cf-setup-pages.ps1` picked it up from `.env` the
+   same way it picked up `VITE_SENTRY_DSN`.
+3. The **secret** key is set in Supabase: the Management API's
+   `config/auth` response shows `security_captcha_enabled: true` and
+   `security_captcha_provider: "turnstile"` on `doddeferfxzgdmzadibq`.
+
+CAPTCHA is fully enforced end-to-end, not just wired and inert.
 
 The CSP (`public/_headers.template`) already allows
 `https://challenges.cloudflare.com` for `script-src`/`frame-src` -- the one
@@ -778,7 +798,8 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 | Legal review | **Deliberately skipped for now (2026-08-25, user's call).** Pages ship as drafted, unreviewed. Real risk for a real launch; deferred, not forgotten. |
 | `spatial.js` | **Done 2026-08-25**, as its own change per this row's original instruction. Confirmed genuinely unreferenced anywhere (not in the LEGACY chain, not in any `pwa.js` group) before touching it. Added to `pwa.js`'s `mission` group alongside the other Mission-page enhancement modules -- renders a "Spatial Mentor" card (compass bearing to the selected water, first-cast/second-cast guidance, wind relation) after `#planSummary` once a position and water are both selected. Verified end-to-end in a live dev server: loads with no console errors, correct placeholder with no position selected, and correct bearing math with one (58.1° computed for a real coordinate pair, bucketed to the right compass direction) |
 | `OPENAI_API_KEY` / `ATLAS_AI_MODEL` | **Declined by choice (2026-08-25), to minimize cost.** A key was generated and verified to authenticate correctly, but the OpenAI account has no funded API credits (ChatGPT subscription doesn't cover API usage -- separate billing). User chose not to add credits rather than pursue it further. `ask-atlas` stays in its rules-based fallback -- verified working, not degraded -- until this is revisited. The model name given (`gpt-5.6-luna`) was never actually validated against a real request, since billing failed first; re-check it against a real model name at platform.openai.com/docs/models whenever this gets revisited. |
-| CAPTCHA (Turnstile) | Frontend wired, inert; needs a Turnstile account + site key + Supabase secret |
+| CAPTCHA (Turnstile) | **Confirmed live end-to-end, 2026-08-25** -- real site key deployed in the bundle, secret enabled on `doddeferfxzgdmzadibq` (`security_captcha_enabled: true`). Not just wired, actually enforcing. |
+| `site_url` (Supabase Auth) | **Confirmed correct, 2026-08-25** -- `https://fishwizz-e7d.pages.dev`, `uri_allow_list` has all four expected entries. The regression flagged in the launch addendum above is not currently real. |
 | Monitoring (Sentry) | **Live as of 2026-08-25** -- DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin, confirmed in the deployed response headers and bundle. Edge Functions still have no monitoring (separate work, step 8 item 3). |
 | Transactional email (SMTP) | **Deliberately skipped for now (2026-08-25, user's call).** Signups cap out on Supabase's built-in limiter (a couple/hour) -- fine for a trickle of early users, not for real public traffic volume. Needs an email provider account (recommended: Resend) whenever this gets revisited. |
 | DNS cutover / Cloudflare security hardening | Not started (step 4) |
