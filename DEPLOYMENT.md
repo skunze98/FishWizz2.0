@@ -764,19 +764,20 @@ instead of whatever the runtime does with an unhandled rejection.
 
 **Still needed from you 🔑, to make it live rather than just written:**
 
-3a. Set the secret (same DSN as `VITE_SENTRY_DSN`, its Sentry project org
-    supports both a browser and a server key on one DSN):
-    ```powershell
-    npx supabase secrets set SENTRY_DSN=... --project-ref doddeferfxzgdmzadibq
-    ```
-3b. Deploy the 8 functions so the new code (and the secret) actually take
-    effect:
-    ```powershell
-    npx supabase functions deploy --project-ref doddeferfxzgdmzadibq
-    ```
-    Both are live-production actions on real traffic -- confirm before
-    running them, don't just assume the code sitting in git is equivalent to
-    it being deployed.
+3a/3b. **Done, 2026-08-25 (user confirmed before running).** `SENTRY_DSN` is
+    set (same value as `VITE_SENTRY_DSN`), and all 8 functions are deployed
+    with the new code. One snag along the way, fixed in the same pass: the
+    CLI's local asset scanner failed to find `_shared/sentry.ts` for two
+    functions (`atlas-live-water`, `atlas-nearby-waters`) whose import used
+    the file's existing no-space minified style
+    (`import{reportError}from"..."`) -- the scanner apparently needs spaces
+    around the braces to detect a local import that needs bundling. Deploy
+    failed for those two with `Module not found` until the import was
+    rewritten to `import { reportError } from "../_shared/sentry.ts";`,
+    matching the six functions that deployed cleanly the first time.
+    Redeployed after the fix; verified live with a real OPTIONS/POST round
+    trip against `atlas-weather` (200 preflight, 401 on an unauthenticated
+    request -- the auth gate survived the redeploy).
 4. UptimeRobot or Cloudflare Health Checks for uptime, separate from error
    monitoring.
 
@@ -820,6 +821,6 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 | `OPENAI_API_KEY` / `ATLAS_AI_MODEL` | **Declined by choice (2026-08-25), to minimize cost.** A key was generated and verified to authenticate correctly, but the OpenAI account has no funded API credits (ChatGPT subscription doesn't cover API usage -- separate billing). User chose not to add credits rather than pursue it further. `ask-atlas` stays in its rules-based fallback -- verified working, not degraded -- until this is revisited. The model name given (`gpt-5.6-luna`) was never actually validated against a real request, since billing failed first; re-check it against a real model name at platform.openai.com/docs/models whenever this gets revisited. |
 | CAPTCHA (Turnstile) | **Confirmed live end-to-end, 2026-08-25** -- real site key deployed in the bundle, secret enabled on `doddeferfxzgdmzadibq` (`security_captcha_enabled: true`). Not just wired, actually enforcing. |
 | `site_url` (Supabase Auth) | **Confirmed correct, 2026-08-25** -- `https://fishwizz-e7d.pages.dev`, `uri_allow_list` has all four expected entries. The regression flagged in the launch addendum above is not currently real. |
-| Monitoring (Sentry) | **Client-side live as of 2026-08-25** -- DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin, confirmed in the deployed response headers and bundle. **Edge Functions: code written and committed 2026-08-25** (`_shared/sentry.ts`, wired into all 8 functions) but not yet deployed or given a `SENTRY_DSN` secret -- see step 8 item 3a/3b. |
+| Monitoring (Sentry) | **Fully live as of 2026-08-25** -- client-side DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin. Edge Functions: `_shared/sentry.ts` wired into all 8 functions, `SENTRY_DSN` secret set, functions redeployed and verified responding correctly (step 8 item 3a/3b). |
 | Transactional email (SMTP) | **Deliberately skipped for now (2026-08-25, user's call).** Signups cap out on Supabase's built-in limiter (a couple/hour) -- fine for a trickle of early users, not for real public traffic volume. Needs an email provider account (recommended: Resend) whenever this gets revisited. |
 | DNS cutover / Cloudflare security hardening | Not started (step 4) |
