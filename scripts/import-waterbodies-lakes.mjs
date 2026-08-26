@@ -45,6 +45,13 @@ async function fetchJson(u, timeoutMs = 20000) {
 }
 
 async function paginate(baseUrl, params, orderField, pageSize = 2000) {
+  // Do NOT treat "got fewer than requested" as "last page" -- the first run
+  // of this script found a WI query silently capping each page at 1000
+  // regardless of a resultRecordCount=2000 request (a different effective
+  // limit than this same service's own advertised maxRecordCount for an
+  // unfiltered query), which made that rule stop after page 1 and silently
+  // drop 9,306 of 10,306 real rows. Keep paging until a page comes back
+  // genuinely empty instead.
   const all = [];
   let offset = 0;
   while (true) {
@@ -55,8 +62,8 @@ async function paginate(baseUrl, params, orderField, pageSize = 2000) {
     const feats = page.features || [];
     all.push(...feats);
     process.stderr.write(`\r  fetched ${all.length}`);
-    if (feats.length < pageSize) break;
-    offset += pageSize;
+    if (!feats.length) break;
+    offset += feats.length;
   }
   process.stderr.write('\n');
   return all;
@@ -83,20 +90,43 @@ function fallbackCentroid(g) {
   return { lon, lat };
 }
 
+// Some real lakes are split across multiple polygon features sharing one
+// DOW/WBIC number (an island, a narrows, a survey-sheet split) -- the
+// second run's "Elk"/"Sugar Camp Creek" failures were exactly this:  two
+// features, same source_id, dispatched in the same concurrent upsert batch,
+// racing on the atlas_id unique index (derived from source_system+source_id,
+// so identical) in a way ON CONFLICT's (source_system, source_id) target
+// doesn't serialize against. Group by source_id and merge every duplicate's
+// rings into one MultiPolygon instead of discarding or racing on them --
+// more complete geometry, and there's only ever one row per source_id by
+// construction, so no concurrent duplicate can reach the upsert step at all.
+function groupAndMerge(feats, idOf, nameOf) {
+  const byId = new Map();
+  for (const f of feats) {
+    const id = idOf(f.attributes || {});
+    if (!id || id === '0') continue;
+    const rings = f.geometry?.rings;
+    if (!Array.isArray(rings) || !rings.length) continue;
+    const existing = byId.get(id);
+    if (existing) existing.rings.push(...rings);
+    else byId.set(id, { id, name: nameOf(f.attributes || {}), rings: [...rings] });
+  }
+  return [...byId.values()];
+}
+
 async function loadMn() {
   const feats = await paginate(
     'https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1/query',
     { f: 'json', where: "pwi_class='P' AND pw_basin_name<>'Unnamed'", outFields: 'dowlknum,pw_basin_name,gnis_name,acres,shore_mi', outSR: '4326', returnGeometry: 'true' },
     'objectid'
   );
-  return feats.map(f => {
-    const a = f.attributes || {};
-    const c = fallbackCentroid(f.geometry);
-    const geom = esriToGeoJSON(f.geometry);
+  const merged = groupAndMerge(feats, a => a.dowlknum ? String(a.dowlknum) : null, a => String(a.pw_basin_name || a.gnis_name || 'Unnamed'));
+  return merged.map(m => {
+    const c = fallbackCentroid({ rings: m.rings });
+    const geom = esriToGeoJSON({ rings: m.rings });
     if (!c || !geom) return null;
     return {
-      source_system: 'mn_dnr_basins', source_id: String(a.dowlknum),
-      name: String(a.pw_basin_name || a.gnis_name || 'Unnamed'),
+      source_system: 'mn_dnr_basins', source_id: m.id, name: m.name,
       state_code: 'MN', water_type: 'lake', source_label: 'Minnesota DNR Public Waters',
       lon: c.lon, lat: c.lat, geometry: geom,
     };
@@ -109,14 +139,13 @@ async function loadWi() {
     { f: 'json', where: "IN_STATE_CODE=1 AND WATERBODY_NAME<>'Unnamed'", outFields: 'WATERBODY_WBIC,WATERBODY_NAME', outSR: '4326', returnGeometry: 'true' },
     'OBJECTID'
   );
-  return feats.map(f => {
-    const a = f.attributes || {};
-    const c = fallbackCentroid(f.geometry);
-    const geom = esriToGeoJSON(f.geometry);
+  const merged = groupAndMerge(feats, a => a.WATERBODY_WBIC ? String(a.WATERBODY_WBIC) : null, a => String(a.WATERBODY_NAME || 'Unnamed'));
+  return merged.map(m => {
+    const c = fallbackCentroid({ rings: m.rings });
+    const geom = esriToGeoJSON({ rings: m.rings });
     if (!c || !geom) return null;
     return {
-      source_system: 'wi_dnr_lakes', source_id: String(a.WATERBODY_WBIC),
-      name: String(a.WATERBODY_NAME || 'Unnamed'),
+      source_system: 'wi_dnr_lakes', source_id: m.id, name: m.name,
       state_code: 'WI', water_type: 'lake', source_label: 'Wisconsin DNR 24K Hydrography',
       lon: c.lon, lat: c.lat, geometry: geom,
     };
@@ -155,14 +184,22 @@ async function upsertAll(rows, concurrency = 15) {
   return { done, failed };
 }
 
-async function main() {
-  console.log('==> Fetching MN named lake basins (pwi_class=P, named)...');
-  const mn = await loadMn();
-  console.log(`    ${mn.length} usable MN rows`);
+async function expectedCount(baseUrl, where) {
+  const q = new URL(baseUrl);
+  q.searchParams.set('f', 'json'); q.searchParams.set('where', where); q.searchParams.set('returnCountOnly', 'true');
+  return (await fetchJson(q)).count;
+}
 
-  console.log('==> Fetching WI named waterbodies (IN_STATE_CODE=1, named)...');
+async function main() {
+  const mnExpected = await expectedCount('https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1/query', "pwi_class='P' AND pw_basin_name<>'Unnamed'");
+  console.log(`==> Fetching MN named lake basins (pwi_class=P, named) -- expecting ${mnExpected} features...`);
+  const mn = await loadMn();
+  console.log(`    ${mn.length} usable MN rows (from ${mnExpected} raw features -- fewer means some share a dowlknum and got merged, not lost)`);
+
+  const wiExpected = await expectedCount('https://dnrmaps.wi.gov/arcgis/rest/services/DW_Map_Dynamic/EN_SurfaceWater_WTM_Ext_Dynamic_L16/MapServer/5/query', "IN_STATE_CODE=1 AND WATERBODY_NAME<>'Unnamed'");
+  console.log(`==> Fetching WI named waterbodies (IN_STATE_CODE=1, named) -- expecting ${wiExpected} features...`);
   const wi = await loadWi();
-  console.log(`    ${wi.length} usable WI rows`);
+  console.log(`    ${wi.length} usable WI rows (from ${wiExpected} raw features -- fewer means some share a WBIC and got merged, not lost)`);
 
   const all = [...mn, ...wi];
   console.log(`==> Total: ${all.length} lakes to upsert`);
