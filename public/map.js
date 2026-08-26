@@ -13,25 +13,65 @@
  function ensureDepthNote(){const mapEl=byId('watersMap');if(!mapEl)return null;let note=byId('depthLegend');if(!note){note=document.createElement('div');note.id='depthLegend';note.className='map-note fw-depth-note';note.hidden=true;mapEl.insertAdjacentElement('afterend',note)}return note}
  function setDepthNote(html){const n=ensureDepthNote();if(!n)return;n.innerHTML=html||'';n.hidden=!html}
  function depthColor(depthFt,maxDepth){const t=maxDepth?Math.min(1,depthFt/maxDepth):0;return `hsl(${205-t*45},70%,${62-t*30}%)`}
+ // The longest of a contour feature's paths -- used as the anchor for that
+ // depth's visible number, since a single depth value on a big lake often
+ // arrives as several disconnected ring segments and only the main one is
+ // worth labeling.
+ function longestPath(paths){return(paths||[]).reduce((a,p)=>Array.isArray(p)&&p.length>(a?a.length:0)?p:a,null)}
+ function depthLabelMarker(latlon,text){if(!latlon)return null;return L.marker(latlon,{icon:L.divIcon({className:'depth-label-icon',html:`<span class="depth-label">${text}</span>`,iconSize:[0,0]}),interactive:false,keyboard:false})}
+ // Draws every contour line for a lake (unchanged) plus one visible "NN ft"
+ // label per index depth (multiples of 10, since the DNR survey's own
+ // interval is 5 ft) at that depth's longest segment -- labeling every one of
+ // a big lake's several-hundred contour segments would bury the map in text.
+ function drawLakeContours(lake){
+  const bestByDepth=new Map();
+  (lake.contours||[]).forEach(c=>{
+   if(!Array.isArray(c.paths)||!c.paths.length)return;
+   L.polyline(c.paths,{color:depthColor(c.depth_ft,lake.max_depth_ft),weight:c.depth_ft<=0?1.2:1.6,opacity:.8}).bindTooltip(`${esc(lake.lake_name||'Lake')}${c.depth_ft>0?` · ${c.depth_ft} ft`:' · Shoreline'}`).addTo(depthLayer);
+   const lp=longestPath(c.paths),existing=bestByDepth.get(c.depth_ft);
+   if(lp&&(!existing||lp.length>existing.length))bestByDepth.set(c.depth_ft,lp);
+  });
+  bestByDepth.forEach((path,depthFt)=>{
+   if(depthFt<=0||depthFt%10!==0)return;
+   const m=depthLabelMarker(path[Math.floor(path.length/2)],`${depthFt} ft`);
+   if(m)m.addTo(depthLayer);
+  });
+ }
+ // Wisconsin has no contour lines to draw, only one reported max depth per
+ // lake (see atlas-water-depth's wi_lakes) -- a gold marker at the lake's
+ // approximate center with the number always visible, distinct in style from
+ // MN's blue-to-green contour gradient so the two data qualities never look
+ // like the same kind of fact.
+ function drawWiLake(w){
+  if(!Number.isFinite(Number(w.lat))||!Number.isFinite(Number(w.lon)))return;
+  L.circleMarker([+w.lat,+w.lon],{radius:5,weight:2,color:'#d7b55b',fillColor:'#d7b55b',fillOpacity:.75}).bindTooltip(`${esc(w.lake_name||'Lake')} · reported max ${esc(w.max_depth_ft)} ft (${esc(w.depth_source||'WDNR')})`).addTo(depthLayer);
+  const m=depthLabelMarker([+w.lat,+w.lon],`${w.max_depth_ft} ft max`);
+  if(m)m.addTo(depthLayer);
+ }
  async function refreshDepthLayer(){
   if(!depthOn||!map||!depthLayer)return;
   const zoom=map.getZoom();
-  if(zoom<DEPTH_MIN_ZOOM){depthLayer.clearLayers();setDepthNote('<b>Depth contours:</b> zoom in further to load lake depth lines for this area.');return}
-  if(!session){setDepthNote('<b>Depth contours:</b> sign in to load DNR lake survey data.');return}
+  if(zoom<DEPTH_MIN_ZOOM){depthLayer.clearLayers();setDepthNote('<b>Depth:</b> zoom in further to load lake depth data for this area.');return}
+  if(!session){setDepthNote('<b>Depth:</b> sign in to load DNR lake survey data.');return}
   const b=map.getBounds(),id=++depthReqId;
-  setDepthNote('<b>Depth contours:</b> loading DNR survey data for this area…');
+  setDepthNote('<b>Depth:</b> loading DNR survey data for this area…');
   try{
    const data=await api('/functions/v1/atlas-water-depth',{method:'POST',body:JSON.stringify({bbox:{min_lat:b.getSouth(),min_lon:b.getWest(),max_lat:b.getNorth(),max_lon:b.getEast()}})});
    if(id!==depthReqId)return;
    depthLayer.clearLayers();
-   if(!data.available){setDepthNote(`<b>Depth contours:</b> ${esc(data.reason||'Not available for this area.')}${data.note?`<br><span class="muted tiny">${esc(data.note)}</span>`:''}`);return}
-   (data.lakes||[]).forEach(lake=>{(lake.contours||[]).forEach(c=>{if(!Array.isArray(c.paths)||!c.paths.length)return;L.polyline(c.paths,{color:depthColor(c.depth_ft,lake.max_depth_ft),weight:c.depth_ft<=0?1.2:1.6,opacity:.8}).bindTooltip(`${esc(lake.lake_name||'Lake')}${c.depth_ft>0?` · ${c.depth_ft} ft`:' · Shoreline'}`).addTo(depthLayer)})});
+   if(!data.available){setDepthNote(`<b>Depth:</b> ${esc(data.reason||'Not available for this area.')}${data.note?`<br><span class="muted tiny">${esc(data.note)}</span>`:''}`);return}
+   (data.lakes||[]).forEach(drawLakeContours);
+   (data.wi_lakes||[]).forEach(drawWiLake);
    const trunc=data.truncated?' · zoom in for full detail here':'';
-   setDepthNote(data.lake_count?`<b>Depth contours:</b> ${data.lake_count} lake${data.lake_count===1?'':'s'} in view · ${data.contour_count} lines at ${data.contour_interval_ft}-ft intervals${trunc}<br><span class="muted tiny">${esc(data.note||'')}</span>`:`<b>Depth contours:</b> no DNR-surveyed lakes in this view.<br><span class="muted tiny">${esc(data.note||'')}</span>`);
-  }catch(e){if(id!==depthReqId)return;setDepthNote(`<b>Depth contours:</b> <span class="warning">${esc(e.message)}</span>`)}
+   const wiCount=(data.wi_lakes||[]).length;
+   const parts=[];
+   if(data.lake_count)parts.push(`${data.lake_count} MN lake${data.lake_count===1?'':'s'} with contour lines (numbers shown at 10-ft intervals) · ${data.contour_count} lines${trunc}`);
+   if(wiCount)parts.push(`${wiCount} WI lake${wiCount===1?'':'s'} with a reported max depth (gold markers)`);
+   setDepthNote(parts.length?`<b>Depth:</b> ${parts.join(' · ')}<br><span class="muted tiny">${esc(data.note||'')}</span>`:`<b>Depth:</b> no DNR-surveyed lakes in this view.<br><span class="muted tiny">${esc(data.note||'')}</span>`);
+  }catch(e){if(id!==depthReqId)return;setDepthNote(`<b>Depth:</b> <span class="warning">${esc(e.message)}</span>`)}
  }
  function scheduleDepthRefresh(){clearTimeout(depthTimer);depthTimer=setTimeout(refreshDepthLayer,450)}
- function ensureMap(){if(map||!window.L||!byId('watersMap'))return;map=L.map('watersMap',{zoomControl:true,preferCanvas:true}).setView([44.3,-93.5],7);window.atlasMap=map;const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,updateWhenIdle:true,keepBuffer:2,attribution:'&copy; OpenStreetMap contributors'}),topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,updateWhenIdle:true,keepBuffer:1,attribution:'Map data &copy; OpenStreetMap, SRTM'});street.addTo(map);depthLayer=L.layerGroup();L.control.layers({Street:street,Terrain:topo},{'Depth contours (MN lakes)':depthLayer},{position:'topright'}).addTo(map);map.on('overlayadd',e=>{if(e.layer===depthLayer){depthOn=true;refreshDepthLayer()}});map.on('overlayremove',e=>{if(e.layer===depthLayer){depthOn=false;depthLayer.clearLayers();setDepthNote('')}});map.on('moveend zoomend',()=>{if(depthOn)scheduleDepthRefresh()});map.on('click',e=>setFishingPosition(e.latlng.lat,e.latlng.lng,'map_tap'));setTimeout(()=>map.invalidateSize(),120)}
+ function ensureMap(){if(map||!window.L||!byId('watersMap'))return;map=L.map('watersMap',{zoomControl:true,preferCanvas:true}).setView([44.3,-93.5],7);window.atlasMap=map;const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,updateWhenIdle:true,keepBuffer:2,attribution:'&copy; OpenStreetMap contributors'}),topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,updateWhenIdle:true,keepBuffer:1,attribution:'Map data &copy; OpenStreetMap, SRTM'});street.addTo(map);depthLayer=L.layerGroup();L.control.layers({Street:street,Terrain:topo},{'Depth (MN contours + WI max depth)':depthLayer},{position:'topright'}).addTo(map);map.on('overlayadd',e=>{if(e.layer===depthLayer){depthOn=true;refreshDepthLayer()}});map.on('overlayremove',e=>{if(e.layer===depthLayer){depthOn=false;depthLayer.clearLayers();setDepthNote('')}});map.on('moveend zoomend',()=>{if(depthOn)scheduleDepthRefresh()});map.on('click',e=>setFishingPosition(e.latlng.lat,e.latlng.lng,'map_tap'));setTimeout(()=>map.invalidateSize(),120)}
  const fmt=(lat,lon)=>`${lat.toFixed(5)}, ${lon.toFixed(5)}`,method=m=>({gps_fix:'Your location',map_tap:'Pinned fishing spot',place_search:'Searched spot'})[m]||'Fishing spot';
  function updatePositionCard(){const box=byId('positionCard');if(!box)return;if(!position){box.innerHTML='<b>Choose your fishing spot</b><br><span class="muted tiny">Tap the map, search a place, or use your location.</span>';return}const acc=Number.isFinite(position.accuracy)?` · ±${Math.round(position.accuracy)} m`:'';const water=position.water_name?`<div class="fw-resolved-water"><b>${esc(position.water_name)}</b><span>${esc(position.water_type||'water')} · ${esc(position.state_code||'')}</span></div>`:'<div class="muted tiny fw-matching">Identifying the water at this exact spot…</div>';box.innerHTML=`<div class="fw-position-head"><div><b>${esc(method(position.method))}</b><br><span class="muted tiny">${esc(fmt(position.lat,position.lon))}${acc}</span></div></div>${water}<button id="missionFromSpot" type="button" class="btn gold" ${position.water_name?'':'disabled'}>${position.water_name?'Build Mission from this spot':'Matching water…'}</button>`;byId('missionFromSpot')?.addEventListener('click',()=>{if(!position.water_name)return;if(byId('mWater'))byId('mWater').value=position.water_name;if(byId('mWaterType'))byId('mWaterType').value=/stream/i.test(position.water_type||'')?'Stream':/river/i.test(position.water_type||'')?'River':/reservoir|flowage/i.test(position.water_type||'')?'Reservoir':'Lake';showPage('mission')});window.atlasFishingLocation={...position};document.dispatchEvent(new CustomEvent('atlas:fishing-position',{detail:window.atlasFishingLocation}))}
  function clearWaterMarkers(){waterMarkers.forEach(m=>m.remove());waterMarkers=[]}

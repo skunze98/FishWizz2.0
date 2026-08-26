@@ -9,18 +9,27 @@ import { reportError } from "../_shared/sentry.ts";
 // before writing this -- polyline contours carry a real `depth`/`abs_depth`
 // in feet, and the metadata layer carries survey area/perimeter.
 //
-// Wisconsin DOES NOT have an equivalent: WI DNR's lake depth maps are
-// scanned per-lake images (apps.dnr.wi.gov/lakes/maps/), not a queryable
-// GIS dataset -- re-confirmed 2026-08-26 while building the map-wide filter
-// below (the only GIS-vector depth contours found for WI lakes are sold
-// per-lake by a third party, not published by the state). That is reported
-// here as `available:false` with a real reason, not silently omitted and
-// not faked -- per the "do not fabricate missing depth information"
-// requirement.
+// Wisconsin DOES NOT have an equivalent depth-CONTOUR dataset: WI DNR's lake
+// depth maps are scanned per-lake images (apps.dnr.wi.gov/lakes/maps/), not
+// a queryable GIS dataset -- re-confirmed 2026-08-26 while building the
+// map-wide filter below (the only GIS-vector depth contours found for WI
+// lakes are sold per-lake by a third party, not published by the state).
 //
-// Rivers/streams also return available:false: this survey program only
-// covers lake basins, and drawing invented contour lines on a stream would
-// be exactly the kind of fabrication the request prohibits.
+// Wisconsin DOES publish one real, structured fact per surveyed lake, though:
+// a single reported MAXIMUM depth, in WDNR's own Register of Waterbodies
+// (dnrmaps.wi.gov .../WY_NATURAL_COMMUNITY_MODELING, layer 0 -- confirmed
+// live 2026-08-26), attributed to where it came from (a WI lake map, the
+// WDNR lake book, or a field determination) via MAX_DEPTH_SOURCE. It is not
+// a shoreline-to-shoreline survey like Minnesota's contours -- one number,
+// not a shape -- and plenty of small/unnamed waters have a real, honest
+// `null` here because they've never been surveyed at all. Both facts are
+// surfaced to the frontend (`depth_kind:"max_depth_only"` in point mode,
+// `wi_lakes` in area mode) so neither gets confused with a full survey.
+//
+// Rivers/streams return available:false in both states: neither survey
+// program covers moving water, and drawing invented contour lines or a
+// invented max depth on a stream would be exactly the kind of fabrication
+// this feature exists to avoid.
 //
 // Two request shapes, same source, same honesty rules:
 //  - point mode ({lat,lon,state_code,water_type,lake_name}): depth detail
@@ -67,9 +76,24 @@ function bboxMiles(minLat:number,minLon:number,maxLat:number,maxLon:number){
 // gates on zoom level so this is defence in depth, not the only guard.
 const MAX_BBOX_MILES=35;
 
-const AREA_NOTE="Depth contours come from Minnesota's statewide DNR lake bathymetric survey. Wisconsin does not publish an equivalent queryable dataset yet, and rivers/streams are not surveyed -- both are honestly left blank here rather than estimated.";
+const AREA_NOTE="Depth contours come from Minnesota's statewide DNR lake bathymetric survey. Wisconsin doesn't publish contour lines, but a reported maximum depth is shown for WI lakes that have one on file with WDNR. Rivers/streams aren't surveyed in either state -- all honestly left blank rather than estimated.";
 
 const base="https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_lake_bathymetry/MapServer";
+const wiBase="https://dnrmaps.wi.gov/arcgis/rest/services/WT_SWDV/WY_NATURAL_COMMUNITY_MODELING/MapServer/0";
+
+// One reported max depth per WI lake that has one on file (see the header
+// comment). Small envelope around a point -- mirrors envelopeFor's point
+// mode, just tighter, since we want "the lake at this spot" not a wide net.
+async function wiMaxDepthNear(lat:number,lon:number,lakeName:string):Promise<any>{
+ const envelope=envelopeFor(lat,lon,.35);
+ const wiUrl=new URL(`${wiBase}/query`);
+ for(const[k,v]of Object.entries({f:"json",where:"MAX_DEPTH IS NOT NULL",outFields:"WBIC,OFFICIAL_NAME,MAX_DEPTH,MAX_DEPTH_UNITS,MAX_DEPTH_SOURCE",geometry:envelope,geometryType:"esriGeometryEnvelope",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outSR:"4326",returnGeometry:"false",resultRecordCount:"10"}))wiUrl.searchParams.set(k,v);
+ const data=await fetchJson(wiUrl,7000);
+ const rows=(data.features||[]).map((f:any)=>f.attributes).filter((a:any)=>a&&Number.isFinite(Number(a.MAX_DEPTH))&&String(a.MAX_DEPTH_UNITS||"").toUpperCase()==="FEET");
+ if(!rows.length)return null;
+ const norm=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+ return(lakeName&&rows.find((r:any)=>norm(r.OFFICIAL_NAME)===norm(lakeName)))||rows[0];
+}
 
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
@@ -122,7 +146,30 @@ Deno.serve(async(req:Request)=>{
    }
    const lakes=[...byLake.values()];
 
-   return reply({available:true,mode:"area",lake_count:lakes.length,contour_count:features.length,truncated:contourData.exceededTransferLimit===true,contour_interval_ft:5,lakes,note:AREA_NOTE,source:"Minnesota DNR Lake Bathymetric Contours",source_url:"https://www.dnr.state.mn.us/lakemapping/description.html",generated_at:new Date().toISOString()});
+   // Wisconsin has no contour geometry to draw, but does have a single
+   // reported max depth per surveyed lake (see wiMaxDepthNear/header comment)
+   // -- pull those too so the map filter isn't Minnesota-only. Best-effort:
+   // a WI service hiccup degrades to "no WI lakes this time", not a failed
+   // request, since the MN contours above are the main payload.
+   let wiLakes:{wbic:number|null,lake_name:string|null,max_depth_ft:number,depth_source:string,lat:number,lon:number}[]=[];
+   try{
+    const wiUrl=new URL(`${wiBase}/query`);
+    for(const[k,v]of Object.entries({f:"json",where:"MAX_DEPTH IS NOT NULL",outFields:"WBIC,OFFICIAL_NAME,MAX_DEPTH,MAX_DEPTH_UNITS,MAX_DEPTH_SOURCE",geometry:envelope,geometryType:"esriGeometryEnvelope",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outSR:"4326",returnGeometry:"true",resultRecordCount:"500"}))wiUrl.searchParams.set(k,v);
+    const wiData=await fetchJson(wiUrl,9000);
+    wiLakes=(wiData.features||[]).map((f:any)=>{
+     const ring=f.geometry?.rings?.[0];
+     const a=f.attributes;
+     if(!Array.isArray(ring)||!ring.length||!a||!Number.isFinite(Number(a.MAX_DEPTH))||String(a.MAX_DEPTH_UNITS||"").toUpperCase()!=="FEET")return null;
+     // Average of the outer ring's vertices -- a cheap, good-enough label
+     // anchor inside the lake's own shape. Not a true area centroid, but
+     // this is only ever used to place a text marker, not for any distance
+     // math, so the approximation is fine.
+     const lon=ring.reduce((s:number,p:number[])=>s+p[0],0)/ring.length,lat=ring.reduce((s:number,p:number[])=>s+p[1],0)/ring.length;
+     return{wbic:a.WBIC??null,lake_name:a.OFFICIAL_NAME||null,max_depth_ft:Number(a.MAX_DEPTH),depth_source:a.MAX_DEPTH_SOURCE||"Wisconsin DNR",lat,lon};
+    }).filter(Boolean) as typeof wiLakes;
+   }catch(e){reportError(e,{function:"atlas-water-depth",stage:"area-wi"})}
+
+   return reply({available:true,mode:"area",lake_count:lakes.length,contour_count:features.length,truncated:contourData.exceededTransferLimit===true,contour_interval_ft:5,lakes,wi_lakes:wiLakes,note:AREA_NOTE,source:"Minnesota DNR Lake Bathymetric Contours",source_url:"https://www.dnr.state.mn.us/lakemapping/description.html",generated_at:new Date().toISOString()});
   }
 
   const lat=Number(b.lat),lon=Number(b.lon);
@@ -135,7 +182,15 @@ Deno.serve(async(req:Request)=>{
    return reply({available:false,reason:"Depth-contour surveys cover lake basins only; there is no equivalent bathymetric survey for rivers or streams.",generated_at:new Date().toISOString()});
   }
   if(stateCode!=="MN"){
-   return reply({available:false,reason:"Wisconsin DNR does not publish a queryable depth-contour dataset -- its lake maps are scanned per-lake images, not structured data FishWizz can read. Minnesota lakes with a DNR bathymetric survey on file are supported.",generated_at:new Date().toISOString()});
+   if(stateCode==="WI"){
+    try{
+     const wi=await wiMaxDepthNear(lat,lon,lakeName);
+     if(wi){
+      return reply({available:true,depth_kind:"max_depth_only",wbic:wi.WBIC??null,lake_name:wi.OFFICIAL_NAME||null,max_depth_ft:Number(wi.MAX_DEPTH),contour_interval_ft:null,contours:[],survey:{lake_name:wi.OFFICIAL_NAME||null,data_source:wi.MAX_DEPTH_SOURCE||"Wisconsin DNR"},source:"Wisconsin DNR Register of Waterbodies",source_url:"https://dnr.wisconsin.gov/topic/Lakes",generated_at:new Date().toISOString()});
+     }
+    }catch(e){reportError(e,{function:"atlas-water-depth",stage:"wi-point"})}
+   }
+   return reply({available:false,reason:"Wisconsin DNR does not publish a queryable depth-contour dataset -- its lake maps are scanned per-lake images, not structured data FishWizz can read. A single reported maximum depth is shown when WDNR has one on file for this lake; when it doesn't, FishWizz will not guess. Minnesota lakes with a DNR bathymetric survey on file get full contour lines.",generated_at:new Date().toISOString()});
   }
 
   const envelope=envelopeFor(lat,lon,1.5);
