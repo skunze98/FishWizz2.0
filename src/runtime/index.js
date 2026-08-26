@@ -40,6 +40,12 @@ const LEGACY = [
   '/mission-inventory-fit.js',
   '/mission-v3.js',
   '/map.js',
+  // P0-2: after mission-v3.js/map.js so the events and globals it listens
+  // for (atlas:fishing-position, atlas:water-selected, atlas:mission-built,
+  // window.lastMission) already exist -- though as an event listener rather
+  // than a direct call site, exact ordering only affects which very first
+  // synthetic re-dispatch it can observe, not correctness.
+  '/location-state.js',
   '/launch.js',
   '/pwa.js',
   '/fishwizz-shell-v2.js',
