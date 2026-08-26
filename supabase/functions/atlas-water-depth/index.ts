@@ -11,13 +11,27 @@ import { reportError } from "../_shared/sentry.ts";
 //
 // Wisconsin DOES NOT have an equivalent: WI DNR's lake depth maps are
 // scanned per-lake images (apps.dnr.wi.gov/lakes/maps/), not a queryable
-// GIS dataset. That is reported here as `available:false` with a real
-// reason, not silently omitted and not faked -- per the "do not fabricate
-// missing depth information" requirement.
+// GIS dataset -- re-confirmed 2026-08-26 while building the map-wide filter
+// below (the only GIS-vector depth contours found for WI lakes are sold
+// per-lake by a third party, not published by the state). That is reported
+// here as `available:false` with a real reason, not silently omitted and
+// not faked -- per the "do not fabricate missing depth information"
+// requirement.
 //
 // Rivers/streams also return available:false: this survey program only
 // covers lake basins, and drawing invented contour lines on a stream would
 // be exactly the kind of fabrication the request prohibits.
+//
+// Two request shapes, same source, same honesty rules:
+//  - point mode ({lat,lon,state_code,water_type,lake_name}): depth detail
+//    for the one selected/verified water, including survey metadata. Used
+//    by the "Fishing context" panel for the water under the pin.
+//  - area mode ({bbox:{min_lat,min_lon,max_lat,max_lon}}): every MN lake
+//    with a surveyed contour inside the given map viewport, grouped per
+//    lake. Used by the map's own "Depth contours" layer filter so an
+//    angler can see depth for every water on screen, not just the one
+//    they've tapped. Capped to a real area so a zoomed-out view can't pull
+//    the entire state's contour lines in one request.
 
 const cors={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json"};
 const reply=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:cors});
@@ -36,6 +50,25 @@ function envelopeFor(lat:number,lon:number,radiusMiles:number){
  return `${lon-dLon},${lat-dLat},${lon+dLon},${lat+dLat}`;
 }
 
+// Real-world width/height of a lat/lon box, in miles -- used to cap how much
+// of the state a single area-mode request can pull in one go (see MAX_BBOX_MILES
+// below). Longitude degrees shrink toward the poles, so width uses the box's
+// mid-latitude cosine the same way envelopeFor does for a single point.
+function bboxMiles(minLat:number,minLon:number,maxLat:number,maxLon:number){
+ const heightMiles=(maxLat-minLat)*69;
+ const midLat=(minLat+maxLat)/2;
+ const widthMiles=(maxLon-minLon)*69*Math.max(.25,Math.cos(midLat*Math.PI/180));
+ return{widthMiles,heightMiles};
+}
+
+// Wider than this and a single viewport could span dozens of lakes' worth of
+// contour lines -- slow for the DNR service, heavy to render, and a proxy for
+// "too zoomed out to read individual depth lines anyway". The frontend also
+// gates on zoom level so this is defence in depth, not the only guard.
+const MAX_BBOX_MILES=35;
+
+const AREA_NOTE="Depth contours come from Minnesota's statewide DNR lake bathymetric survey. Wisconsin does not publish an equivalent queryable dataset yet, and rivers/streams are not surveyed -- both are honestly left blank here rather than estimated.";
+
 const base="https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_lake_bathymetry/MapServer";
 
 Deno.serve(async(req:Request)=>{
@@ -49,6 +82,49 @@ Deno.serve(async(req:Request)=>{
   if(!u.user)return reply({error:"Unauthorized"},401);
 
   const b=await req.json().catch(()=>({}));
+
+  // Area mode: every surveyed MN lake inside a map viewport, grouped per
+  // lake, for the map's own "Depth contours" filter layer. Point mode
+  // (below) is unchanged -- still what the single-water "Fishing context"
+  // panel uses.
+  if(b.bbox&&typeof b.bbox==="object"){
+   const minLat=Number(b.bbox.min_lat),minLon=Number(b.bbox.min_lon),maxLat=Number(b.bbox.max_lat),maxLon=Number(b.bbox.max_lon);
+   if(![minLat,minLon,maxLat,maxLon].every(Number.isFinite)||minLat>=maxLat||minLon>=maxLon){
+    return reply({error:"Valid bbox {min_lat,min_lon,max_lat,max_lon} required"},400);
+   }
+   const{widthMiles,heightMiles}=bboxMiles(minLat,minLon,maxLat,maxLon);
+   if(widthMiles>MAX_BBOX_MILES||heightMiles>MAX_BBOX_MILES){
+    return reply({available:false,mode:"area",reason:"Zoom in further -- this view is too wide to load every lake's depth contours at once.",note:AREA_NOTE,generated_at:new Date().toISOString()});
+   }
+
+   const envelope=`${minLon},${minLat},${maxLon},${maxLat}`;
+   const contourUrl=new URL(`${base}/0/query`);
+   for(const[k,v]of Object.entries({f:"json",where:"1=1",outFields:"dowlknum,lake_name,depth,abs_depth",geometry:envelope,geometryType:"esriGeometryEnvelope",inSR:"4326",spatialRel:"esriSpatialRelIntersects",outSR:"4326",returnGeometry:"true",resultRecordCount:"2000"}))contourUrl.searchParams.set(k,v);
+
+   let contourData:any;
+   try{contourData=await fetchJson(contourUrl,9000)}
+   catch(e){
+    reportError(e,{function:"atlas-water-depth",stage:"area-contours"});
+    return reply({available:false,mode:"area",reason:"The DNR bathymetry service did not respond in time. Try again shortly.",note:AREA_NOTE,generated_at:new Date().toISOString()});
+   }
+
+   const features=(contourData.features||[]).filter((f:any)=>Array.isArray(f.geometry?.paths)&&f.geometry.paths.length);
+   const byLake=new Map<string,{dow_lake_number:string|null,lake_name:string|null,max_depth_ft:number,contours:{depth_ft:number,paths:[number,number][][]}[]}>();
+   for(const f of features){
+    const dow=f.attributes?.dowlknum?String(f.attributes.dowlknum):"";
+    const key=dow||`unnamed_${f.attributes?.lake_name||"lake"}_${byLake.size}`;
+    const depthFt=Number(f.attributes?.abs_depth??f.attributes?.depth??0);
+    const paths=f.geometry.paths.map((path:[number,number][])=>path.map(([x,y])=>[y,x]));
+    let lake=byLake.get(key);
+    if(!lake){lake={dow_lake_number:dow||null,lake_name:f.attributes?.lake_name||null,max_depth_ft:0,contours:[]};byLake.set(key,lake)}
+    lake.contours.push({depth_ft:depthFt,paths});
+    if(depthFt>lake.max_depth_ft)lake.max_depth_ft=depthFt;
+   }
+   const lakes=[...byLake.values()];
+
+   return reply({available:true,mode:"area",lake_count:lakes.length,contour_count:features.length,truncated:contourData.exceededTransferLimit===true,contour_interval_ft:5,lakes,note:AREA_NOTE,source:"Minnesota DNR Lake Bathymetric Contours",source_url:"https://www.dnr.state.mn.us/lakemapping/description.html",generated_at:new Date().toISOString()});
+  }
+
   const lat=Number(b.lat),lon=Number(b.lon);
   const stateCode=String(b.state_code||"").toUpperCase();
   const waterType=String(b.water_type||"").toLowerCase();
