@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { reportError } from "../_shared/sentry.ts";
 
 const cors={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS"};
 const jsonHeaders={...cors,"content-type":"application/json"};
@@ -20,6 +21,7 @@ Deno.serve(async(req:Request)=>{
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
  const {data:userData}=await userClient.auth.getUser();
  if(!userData.user)return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:jsonHeaders});
+ try{
  const admin=createClient(url,service);const body=await req.json().catch(()=>({}));
  const state=body.state==="WI"?"WI":"MN",query=String(body.query??"").trim(),requested=String(body.water_type??"all").toLowerCase();
  if(query.length<2)return new Response(JSON.stringify({error:"Enter at least 2 characters"}),{status:400,headers:jsonHeaders});
@@ -28,4 +30,5 @@ Deno.serve(async(req:Request)=>{
  await Promise.all(sources.map(async source=>{const q=new URL(source.url);q.searchParams.set("f","geojson");q.searchParams.set("where",`UPPER(${source.field}) LIKE UPPER('%${esc(query)}%')`);q.searchParams.set("outFields",`${source.idField},${source.field}`);q.searchParams.set("returnGeometry","true");q.searchParams.set("outSR","4326");q.searchParams.set("resultRecordCount","100");try{const res=await fetch(q,{headers:{"user-agent":"AtlasFishingOS/0.8"}});if(!res.ok){failures.push({source:source.key,status:res.status});return;}const payload=await res.json();for(const feature of payload.features??[]){const p=feature.properties??{},name=String(p[source.field]??"").trim();if(!name)continue;const sourceId=String(p[source.idField]??feature.id??`${name}:${source.type}`),[lon,lat]=center(feature.geometry);const {data:id,error}=await admin.rpc("upsert_catalog_waterbody",{p_source_system:source.key,p_source_id:sourceId,p_source_label:source.label,p_name:name,p_state_code:state,p_water_type:source.type,p_lon:lon,p_lat:lat,p_official_url:q.toString(),p_source_updated_at:null});if(!error)waters.push({id,name,state_code:state,water_type:source.type,source_label:source.label,latitude:lat,longitude:lon,official:true});}}catch(e){failures.push({source:source.key,error:String(e)})}}));
  const unique=[...new Map(waters.map(w=>[`${w.id||w.name}|${w.state_code}`,w])).values()].sort((a:any,b:any)=>a.name.localeCompare(b.name));
  return new Response(JSON.stringify({query,state,coverage:"statewide official catalog, searched on demand",cached_count:unique.length,waters:unique,failures}),{headers:jsonHeaders});
+ }catch(e){reportError(e,{function:"atlas-water-catalog"});return new Response(JSON.stringify({error:e instanceof Error?e.message:String(e)}),{status:500,headers:jsonHeaders});}
 });

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { reportError } from "../_shared/sentry.ts";
 
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json"}});
@@ -42,5 +43,5 @@ Deno.serve(async(req:Request)=>{
    if(r.ok){const d=await r.json();const answer=text(d?.output_text)||text(d?.output?.flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==="output_text")?.text);if(answer)return json({answer,mode:"ai",model});}
   }
   return json({answer:fallback(question,context),mode:"contextual",model:null});
- }catch(e){return json({error:e instanceof Error?e.message:"Ask Atlas failed."},500)}
+ }catch(e){reportError(e,{function:"ask-atlas"});return json({error:e instanceof Error?e.message:"Ask Atlas failed."},500)}
 });

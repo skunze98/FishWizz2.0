@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { reportError } from "../_shared/sentry.ts";
 
 const cors = {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
 Deno.serve(async (req) => {
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ok:true}), {headers:cors});
   } catch (e) {
     console.error(e);
+    reportError(e, { function: "delete-my-account" });
     return new Response(JSON.stringify({error:"Could not delete account"}), {status:500,headers:cors});
   }
 });

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { reportError } from "../_shared/sentry.ts";
 const cors={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS","content-type":"application/json"};
 const reply=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:cors});
 Deno.serve(async(req:Request)=>{
@@ -44,5 +45,5 @@ Deno.serve(async(req:Request)=>{
     boundingbox:x.boundingbox||null
   }));
   return reply({results});
- }catch(e){return reply({error:e instanceof Error?e.message:String(e)},500)}
+ }catch(e){reportError(e,{function:"atlas-place-search"});return reply({error:e instanceof Error?e.message:String(e)},500)}
 });
