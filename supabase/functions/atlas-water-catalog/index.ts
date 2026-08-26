@@ -8,8 +8,14 @@ const SOURCES={MN:[
  {key:"mn_dnr_basins",label:"Minnesota DNR Public Waters",url:"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1/query",field:"pw_basin_name",idField:"dnr_hydro_id",type:"lake"},
  {key:"mn_dnr_streams",label:"Minnesota DNR Rivers and Streams",url:"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_dnr_hydrography/FeatureServer/0/query",field:"kittle_name",idField:"dnr_hydro_id",type:"stream"}
 ],WI:[
- {key:"wi_dnr_lakes",label:"Wisconsin DNR Hydrography",url:"https://dnrmaps.wi.gov/arcgis/rest/services/ER_Biotics/ER_Biotics_WGS84_Hydro/MapServer/0/query",field:"WATERBODY_NAME",idField:"WATERBODY_WBIC",type:"lake"},
- {key:"wi_dnr_streams",label:"Wisconsin DNR Hydrography",url:"https://dnrmaps.wi.gov/arcgis/rest/services/ER_Biotics/ER_Biotics_WGS84_Hydro/MapServer/1/query",field:"RIVER_SYS_NAME",idField:"RIVER_SYS_WBIC",type:"stream"}
+ // NOT ER_Biotics_WGS84_Hydro -- see the matching note in
+ // atlas-nearby-waters/index.ts. That service returns real features far
+ // outside Wisconsin (a Minnesota lake surfaced as an "on-water" WI match
+ // ~60 miles from the real border), all under WBIC 0. This layer is WI's
+ // real 24K hydro data (native WTM/EPSG:3071) and self-reports which rows
+ // are genuinely in-state via IN_STATE_CODE -- filtered in below.
+ {key:"wi_dnr_lakes",label:"Wisconsin DNR 24K Hydrography",url:"https://dnrmaps.wi.gov/arcgis/rest/services/DW_Map_Dynamic/EN_SurfaceWater_WTM_Ext_Dynamic_L16/MapServer/5/query",field:"WATERBODY_NAME",idField:"WATERBODY_WBIC",type:"lake",extraWhere:"AND IN_STATE_CODE=1"},
+ {key:"wi_dnr_streams",label:"Wisconsin DNR 24K Hydrography",url:"https://dnrmaps.wi.gov/arcgis/rest/services/DW_Map_Dynamic/EN_SurfaceWater_WTM_Ext_Dynamic_L16/MapServer/3/query",field:"RIVER_SYS_NAME",idField:"RIVER_SYS_WBIC",type:"stream",extraWhere:"AND IN_STATE_CODE=1"}
 ]} as const;
 function esc(v:string){return v.replaceAll("'","''");}
 function center(g:any):[number|null,number|null]{if(!g)return[null,null];if(g.type==="Point")return[g.coordinates?.[0]??null,g.coordinates?.[1]??null];const pts:number[][]=[];const walk=(v:any)=>{if(Array.isArray(v)&&typeof v[0]==="number"&&typeof v[1]==="number")pts.push(v);else if(Array.isArray(v))v.forEach(walk)};walk(g.coordinates);if(!pts.length)return[null,null];return[pts.reduce((s,p)=>s+p[0],0)/pts.length,pts.reduce((s,p)=>s+p[1],0)/pts.length];}
@@ -27,7 +33,7 @@ Deno.serve(async(req:Request)=>{
  if(query.length<2)return new Response(JSON.stringify({error:"Enter at least 2 characters"}),{status:400,headers:jsonHeaders});
  const sources=SOURCES[state].filter(s=>requested==="all"||requested==="water"||requested===s.type||(requested==="river"&&s.type==="stream")||(requested==="stream"&&s.type==="stream")||(["pond","reservoir","flowage"].includes(requested)&&s.type==="lake"));
  const waters:any[]=[],failures:any[]=[];
- await Promise.all(sources.map(async source=>{const q=new URL(source.url);q.searchParams.set("f","geojson");q.searchParams.set("where",`UPPER(${source.field}) LIKE UPPER('%${esc(query)}%')`);q.searchParams.set("outFields",`${source.idField},${source.field}`);q.searchParams.set("returnGeometry","true");q.searchParams.set("outSR","4326");q.searchParams.set("resultRecordCount","100");try{const res=await fetch(q,{headers:{"user-agent":"AtlasFishingOS/0.8"}});if(!res.ok){failures.push({source:source.key,status:res.status});return;}const payload=await res.json();for(const feature of payload.features??[]){const p=feature.properties??{},name=String(p[source.field]??"").trim();if(!name)continue;const sourceId=String(p[source.idField]??feature.id??`${name}:${source.type}`),[lon,lat]=center(feature.geometry);
+ await Promise.all(sources.map(async source=>{const q=new URL(source.url);q.searchParams.set("f","geojson");q.searchParams.set("where",`UPPER(${source.field}) LIKE UPPER('%${esc(query)}%') ${(source as any).extraWhere||""}`.trim());q.searchParams.set("outFields",`${source.idField},${source.field}`);q.searchParams.set("returnGeometry","true");q.searchParams.set("outSR","4326");q.searchParams.set("resultRecordCount","100");try{const res=await fetch(q,{headers:{"user-agent":"AtlasFishingOS/0.8"}});if(!res.ok){failures.push({source:source.key,status:res.status});return;}const payload=await res.json();for(const feature of payload.features??[]){const p=feature.properties??{},name=String(p[source.field]??"").trim();if(!name)continue;const sourceId=String(p[source.idField]??feature.id??`${name}:${source.type}`),[lon,lat]=center(feature.geometry);
 // This query already asked ArcGIS for f=geojson, so feature.geometry is
 // already real GeoJSON -- no esri-to-GeoJSON conversion needed here, unlike
 // atlas-nearby-waters which fetches f=json (esri format) for speed.
