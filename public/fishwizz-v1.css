@@ -21,6 +21,7 @@ html[data-fishwizz-shell-v2="1"] .hero{border:1px solid rgba(122,217,87,.20)!imp
 html[data-fishwizz-shell-v2="1"] .hero h1{color:#faf8ef!important}
 html[data-fishwizz-shell-v2="1"] .card{background:linear-gradient(180deg,rgba(5,19,14,.98),rgba(3,14,10,.98))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:0 10px 28px rgba(0,0,0,.18)!important}
 html[data-fishwizz-shell-v2="1"] input,html[data-fishwizz-shell-v2="1"] select,html[data-fishwizz-shell-v2="1"] textarea{background:#03110c!important;border-color:rgba(119,174,154,.34)!important;color:#f6f6ee!important}
+html[data-fishwizz-shell-v2="1"] option{background:#03110c!important;color:#f6f6ee!important}
 html[data-fishwizz-shell-v2="1"] .btn.gold{background:linear-gradient(180deg,#edc15a,#dca943)!important;color:#121b14!important;border-color:#f0c764!important}
 html[data-fishwizz-shell-v2="1"] .btn:not(.gold):not(.bad){background:#13231d!important;border-color:#34483f!important}
 html[data-fishwizz-shell-v2="1"] #mission .grid{align-items:start}
