@@ -5,7 +5,11 @@ import { reportError } from "../_shared/sentry.ts";
 const cors={"access-control-allow-origin":"*","access-control-allow-headers":"authorization, x-client-info, apikey, content-type","access-control-allow-methods":"POST, OPTIONS"};
 const jsonHeaders={...cors,"content-type":"application/json"};
 const SOURCES={MN:[
- {key:"mn_dnr_basins",label:"Minnesota DNR Public Waters",url:"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1/query",field:"pw_basin_name",idField:"dnr_hydro_id",type:"lake"},
+ // idField is dowlknum, not dnr_hydro_id -- see the matching note in
+ // atlas-nearby-waters/index.ts. That field doesn't exist on this layer at
+ // all, so every match was silently falling back to a name-based id, which
+ // collides for MN's many real, distinct lakes sharing a common name.
+ {key:"mn_dnr_basins",label:"Minnesota DNR Public Waters",url:"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1/query",field:"pw_basin_name",idField:"dowlknum",type:"lake"},
  {key:"mn_dnr_streams",label:"Minnesota DNR Rivers and Streams",url:"https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_dnr_hydrography/FeatureServer/0/query",field:"kittle_name",idField:"dnr_hydro_id",type:"stream"}
 ],WI:[
  // NOT ER_Biotics_WGS84_Hydro -- see the matching note in
