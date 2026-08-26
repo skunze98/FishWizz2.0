@@ -491,6 +491,27 @@ cited in the documents and Google checks that the privacy URL resolves.
 
 ## 4. DNS and Cloudflare security 🔑
 
+**Deferred in full, 2026-08-26 (user's call).** Confirmed with the user:
+`app.fishwizz.com` stays the collaborator's live deployment, untouched — this
+beta keeps building and launching at `https://fishwizz-e7d.pages.dev`
+(established in the "launching at `fishwizz-e7d.pages.dev`" addendum above).
+That doesn't just remove item 1 below — **every item in this step is
+zone-level, not per-subdomain**: SSL/TLS mode, Bot Fight Mode, the
+rate-limiting rule, and HSTS all apply to the whole `fishwizz.com` zone, which
+is shared with the collaborator's production traffic. None of it can be
+touched without affecting their site too, so none of it is actionable while
+that's still one shared zone. Separately, `fishwizz-e7d.pages.dev` sits on
+Cloudflare's own shared `pages.dev` zone — there's no zone-level
+security/WAF configuration surface on our side for it regardless. The whole
+step becomes actionable again once domain access is reconciled (see the
+`usanapexwjssjscmdjwv`/collaborator addendum above); until then it's dead
+weight, not a launch blocker for the pages.dev beta. `www.fishwizz.com` stays
+attached to `fishwizz-web` (marketing) as already decided — that one's real
+and unaffected.
+
+The steps below are left as originally written, for whenever domain access
+is sorted out:
+
 There are two Pages projects and this step touches both:
 
 1. In the **app** Pages project (built from this repo), Custom domains → add
@@ -824,5 +845,5 @@ Deletion already exists (`delete-my-account`), and the policy is step 3.
 | `site_url` (Supabase Auth) | **Confirmed correct, 2026-08-25** -- `https://fishwizz-e7d.pages.dev`, `uri_allow_list` has all four expected entries. The regression flagged in the launch addendum above is not currently real. |
 | Monitoring (Sentry) | **Fully live as of 2026-08-25** -- client-side DSN set on Cloudflare Pages (both environments, verified via API), CSP `connect-src` carries the ingest origin. Edge Functions: `_shared/sentry.ts` wired into all 8 functions, `SENTRY_DSN` secret set, functions redeployed and verified responding correctly (step 8 item 3a/3b). |
 | Transactional email (SMTP) | **Deliberately skipped for now (2026-08-25, user's call).** Signups cap out on Supabase's built-in limiter (a couple/hour) -- fine for a trickle of early users, not for real public traffic volume. Needs an email provider account (recommended: Resend) whenever this gets revisited. |
-| DNS cutover / Cloudflare security hardening | Not started (step 4) |
+| DNS cutover / Cloudflare security hardening | **Deferred in full, 2026-08-26 (user's call).** `app.fishwizz.com` stays the collaborator's untouched deployment; this beta keeps launching at `fishwizz-e7d.pages.dev`. Every remaining item in step 4 (SSL/TLS mode, Bot Fight Mode, rate limiting, HSTS) is a `fishwizz.com`-zone-level setting shared with the collaborator's live traffic, not something scoped to a subdomain — none of it is actionable until domain access is reconciled. Not a launch blocker for the pages.dev beta. |
 | Map "true nearest water" + missing `atlas_water_quality()` | **Fixed and deployed live, 2026-08-25/26.** Investigating a user report that the map doesn't pick the true nearest water found two real bugs: (1) `waterbodies.geometry` was NULL for all 1311 rows -- the only write path, `upsert_catalog_waterbody()`, never accepted a geometry parameter, only a centroid point, so `atlas_map_context()`'s correct `ST_ClosestPoint`/`ST_Distance` shoreline math had nothing real to run against; (2) `atlas_map_context()` calls `public.atlas_water_quality(v_water_id)`, which **did not exist in the database at all** -- a hard runtime error on every map tap that actually found a nearby water (the schema dump was reloaded with `check_function_bodies = false`, so `CREATE FUNCTION` never caught the reference at create-time). Migration `20260826020000_water_geometry_and_quality.sql`: recreated `atlas_water_quality(uuid)` for real (evidence-completeness score across 5 data layers -- geometry, species, access points, gauges, recent reports/observations); extended `upsert_catalog_waterbody()` with an optional GeoJSON geometry parameter, deriving centroid from it when supplied; rebuilt `nearby_water_catalog()` to prefer geometry distance and return `match_type`/`has_geometry` so a cached geometry-backed row is exactly as trustworthy as a live DNR match. `atlas-nearby-waters` and `atlas-water-catalog` edge functions updated to actually send geometry through on every DNR fetch and persist it via `upsert_catalog_waterbody` -- previously only the by-name search path (`atlas-water-catalog`) ever wrote to the catalog at all, so a spot reached only by tapping the map could never be cached with real geometry. `atlas-nearby-waters` also dropped a longitude-based MN/WI source-skip heuristic (the real border follows the St. Croix/Mississippi, not a straight line, so it could silently skip the correct state's source near the border) and replaced two flat distance-only accept/reject cutoffs with a `trustworthy()` check that trusts any geometry-backed `on_water`/`very_close` match at whatever distance Postgres computed, since a real lake's centroid is almost never within the old flat cutoffs of its own shoreline. **Deployment note:** the SQL had already been run against `doddeferfxzgdmzadibq` in the session that wrote it, but the local migration history table was never reconciled (`supabase migration repair --status applied` fixed that) and the two edge functions had not actually been deployed until now. A separate, already-committed migration (`20260824000000_fix_bass_species_matching.sql`) was found pending in the same state and applied in the same pass. **Verified live**: both functions redeployed cleanly (OPTIONS 200, unauthenticated POST 401 on both); a real polygon geometry written via `upsert_catalog_waterbody` and read back via `nearby_water_catalog` for a point inside it returned `match_type: on_water`, `distance_miles: 0`, `has_geometry: true`, and `atlas_water_quality` scored it correctly (20/100, geometry-only evidence) -- test row deleted after. |
