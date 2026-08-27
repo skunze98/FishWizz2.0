@@ -22,7 +22,15 @@ function fallback(question:string,context:any){
  const target=context?.mission?.context?.target||context?.angler_profile?.preferred_species?.[0]||"your target fish";
  const lure=primary?.lure||primary?.presentation||"your primary presentation";
  const color=primary?.color?` in ${primary.color}`:"";
- const start=mission?.start_zone||"the best visible cover or structure near your selected position";
+ // P3-16 ("no duplicated sentence starts", the tracker's own quoted example
+ // "Start at Start on"): mission.start_zone, when a real Mission exists, is
+ // already a complete instruction sentence beginning with "Start" itself
+ // (get_mission_plan_v3 in supabase/schema/public.sql: "Start on a current
+ // break...", "Start with shade...", etc) -- only the no-Mission fallback
+ // below is a bare noun phrase that actually needs the "Start at " lead-in.
+ const startZone=mission?.start_zone;
+ const start=startZone||"the best visible cover or structure near your selected position";
+ const startLine=startZone?startZone:`Start at ${start}`;
  const how=primary?.how||"make controlled casts and change one variable at a time";
  const switchWhen=primary?.switch_when||mission?.adjustment_plan||"after 15–20 deliberate minutes without contact, change angle or depth before changing lures";
 
@@ -53,7 +61,7 @@ function fallback(question:string,context:any){
 
  if(/weather|conditions|front|barometric|is (it|today) good/.test(q))return [pressureLine,lightLine,windLine].filter(Boolean).join(" ")||"Atlas doesn't have live conditions loaded for this spot yet -- load weather on the Mission page and ask again for a conditions-based read.";
  if(/bite|strike|hook set|hookset|feel/.test(q))return `With ${lure}${color}, watch for a sudden stop, extra weight, a tick, or a change in vibration. Keep tension, confirm pressure, then set the hook. If it is a bottom-contact bait, also watch for the line moving sideways.${light==="low"?" Low light means fish commit harder -- a positive take should be easy to feel.":light==="bright"?" Bright conditions often mean a softer, more hesitant take -- watch your line as much as you feel for it.":""}`;
- if(/where|cast|spot|location/.test(q))return `Start at ${start}. On ${water}, prioritize ${structure}. Make fan casts that cover the closest high-percentage edge first, then work progressively farther out.${windLine?` ${windLine}`:""}${personalLine}`;
+ if(/where|cast|spot|location/.test(q))return `${startLine}. On ${water}, prioritize ${structure}. Make fan casts that cover the closest high-percentage edge first, then work progressively farther out.${windLine?` ${windLine}`:""}${personalLine}`;
  if(/how deep|depth/.test(q))return `${moving?"In moving water, work the depth where current speed breaks -- right where fast water slows, not the deepest slot in the pool.":"Start shallower along the structure edge and work progressively deeper until you find fish, rather than guessing a depth up front."}${tempBand==="cold"?" Cold water usually means fish are holding deeper and tighter to structure.":tempBand==="hot"?" Warm water often pushes fish shallow early/late and deeper through midday.":""}`;
  if(/morning|evening|night|best time|what time|time of day|when should/.test(q))return `${light==="low"?"Current light is already working in your favor -- low-light windows like this are when fish feed most confidently.":"Bright, high-light stretches favor early morning, late evening, or another low-light window -- fish sit tighter to cover and feed more cautiously through the middle of a bright day."}${tempBand==="hot"?" In warm water, first and last light matter even more than usual.":""}`;
  if(/retrieve|reel|work this|how do i fish/.test(q))return `${how}.${tempBand==="cold"?" Slow down further than feels natural -- cold water fish rarely chase a fast bait.":tempBand==="hot"||tempBand==="warm"?" Warmer water can support a faster, more reaction-triggering retrieve, especially early or late in the day.":""} Keep the first several casts consistent so you can tell whether a speed, angle, or depth change actually improves the result.`;

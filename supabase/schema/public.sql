@@ -213,7 +213,13 @@ begin
       primary_combo := 'PhysYX + Regal LT'; primary_lure := 'X-Rap XR10'; primary_color := case when lower(p_clarity)='clear' then 'Natural silver / perch' else 'Bluegill flash / chartreuse accent' end;
       primary_how := 'Use two short snaps, then pause. Lengthen the pause in cold or calm water and shorten it when fish are active.';
       primary_why := 'The spinning setup casts and controls jerkbaits well, while the pause gives walleye time to commit.';
-      primary_watch := 'Weight on the pause, a tick, or the line jumping before the next snap.';
+      -- P3-16 ("an X-Rap is not described with live-bait wording"): "a tick"
+      -- is bait-fishing terminology (feeling a fish mouth a live bait) --
+      -- confirmed wrong for a suspending jerkbait, which a fish inhales
+      -- while it's paused, motionless, in the water. Matches this file's
+      -- own wording for every other hard bait's watch-for line (ChatterBait/
+      -- spinnerbait above use "feels heavy"/"sudden heaviness", not a tick).
+      primary_watch := 'The bait stops moving, feels heavy, or the line jumps or slides sideways before the next snap.';
       backup_combo := 'BPS TSR + Nexave'; backup_lure := 'Slip-sinker rig'; backup_color := 'Nightcrawler'; backup_how := 'Set it on bottom near a break, point, or inlet and let the fish load the rod.'; backup_why := 'Live bait slows the presentation when active lures are ignored.';
     end if;
     finesse_lure := '1/8 oz jig and minnow-style plastic'; finesse_color := case when lower(p_clarity)='clear' then 'Natural shad' else 'Chartreuse / white' end;
