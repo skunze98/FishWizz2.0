@@ -78,6 +78,11 @@
 
   // --- correlate with field-guard.js's rejections, without ever logging
   // the rejected value itself ------------------------------------------
+  // setGuardedValue() (the fallback/restore-path guard added alongside this
+  // module, reopened P0-1) dispatches this event itself rather than being
+  // wrapped -- it's called from many files, wrapping would need finding and
+  // patching every one of them the way this only needs one listener.
+  document.addEventListener('atlas:diag-guard-blocked',e=>log('guard-blocked',{field:e.detail?.field||null}));
   const g=window.FishWizzGuard;
   if(g?.rejectIfEmailShaped&&!g.__diagWrapped){
    const orig=g.rejectIfEmailShaped;

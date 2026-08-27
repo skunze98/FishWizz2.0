@@ -35,6 +35,24 @@ window.L = L;
 // mission-v3.js overrides again.
 const LEGACY = [
   '/app.js',
+  // P0-1 reopened (staging QA, 2026-08-27): field-guard.js used to load
+  // second-to-last, which was fine for catch-pro.js/mission-v3.js (they only
+  // ever call window.FishWizzGuard at user-interaction time, long after the
+  // whole LEGACY chain has finished) but was a real, live bug for
+  // guest-draft.js below: its restore() runs synchronously at BOOT, so on
+  // every single page load window.FishWizzGuard did not exist yet when it
+  // needed it, silently skipping the guard entirely. Moved right after
+  // app.js -- it has no dependency on anything else in this list -- so
+  // every consumer, boot-time or interaction-time, can rely on it.
+  '/field-guard.js',
+  // P1-5 reopened: the one authoritative gear (combos/rods/reels/lures)
+  // fetch + cache, replacing three separate ones that used to each hold
+  // their own answer to "how much gear does this account have" and
+  // disagree. Eager and early for the same reason as field-guard.js above:
+  // arsenal-safe.js, mission-inventory-fit.js, and today.js all call it, at
+  // both boot time (today.js) and interaction time, and none of them should
+  // have to worry about whether it has loaded yet.
+  '/gear-state.js',
   '/water-search.js',
   '/patch.js',
   '/mission-inventory-fit.js',
@@ -55,14 +73,8 @@ const LEGACY = [
   '/fishwizz-shell-v2.js',
   '/production-hardening.js',
   '/premium-product.js',
-  // Cross-cutting resilience layer (error/offline banners, haptic feedback,
-  // map resize on tab focus) -- app-wide, not page-specific, and boots off a
-  // bare DOMContentLoaded listener rather than a readyState-guarded one, so
-  // it needs the LEGACY chain's synthetic re-dispatch rather than a lazy
-  // pwa.js group (which loads well after that event has already fired).
-  '/field-guard.js',
   // TEMPORARY -- P0-1 staging diagnostic. Loaded last so window.FishWizzGuard
-  // (field-guard.js, immediately above) already exists to wrap. Remove this
+  // (field-guard.js, now at the top) already exists to wrap. Remove this
   // line and public/diag-identity-p0.js together once P0-1 is resolved --
   // see that file's own header for the full removal note.
   '/diag-identity-p0.js',

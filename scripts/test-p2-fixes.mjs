@@ -43,9 +43,22 @@ function makeDocument(fields) {
 
 // --- P2-10: guest-draft.js -------------------------------------------------
 {
+  // P0-1 reopened: guest-draft.js's restore() now requires the real guard
+  // (fails closed without it, deliberately). Import field-guard.js's real
+  // isEmailShaped/setGuardedValue -- not a hand-rolled stand-in -- but
+  // BEFORE globalThis.window exists, so only the plain-Node-testable part at
+  // the top of that file runs; its DOM-heavy resilience/health-check code
+  // below the `typeof window==='undefined'` guard needs a much bigger stub
+  // (navigator, window.addEventListener, document.querySelector('main'),
+  // matchMedia...) this test has no reason to also exercise.
+  delete globalThis.window;
+  await import(pathToFileURL(path.join(root, 'public/field-guard.js')));
+  const guard = globalThis.__fishwizzTest?.fieldGuard;
+
   const fields = { mWater: stubEl(), mTarget: stubEl(), cWater: stubEl(), cSpecies: stubEl() };
   globalThis.document = makeDocument(fields);
   globalThis.window = globalThis;
+  window.FishWizzGuard = guard;
   const store = new Map();
   globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) };
 
@@ -55,6 +68,7 @@ function makeDocument(fields) {
   section('P2-10: guest draft save / restore');
   wire();
   check('module exports the expected surface', typeof restore === 'function' && typeof clearDraft === 'function' && typeof readDraft === 'function');
+  check('the real guard is present (restore() fails closed without it)', typeof window.FishWizzGuard?.setGuardedValue === 'function');
 
   // The stub DOM's addEventListener is a no-op (no real 'input' event
   // wiring to exercise), so this writes a draft the way the module's own
@@ -68,6 +82,29 @@ function makeDocument(fields) {
   check('an empty field is restored from the draft', fields.mWater.value === 'Lake Minnetonka');
   check('a second empty field restores independently', fields.cSpecies.value === 'Walleye');
   check('a field the user already filled is never overwritten', fields.cWater.value === 'Already typed water');
+
+  section('P0-1 reopened: a corrupted (email-shaped) stored draft is refused AND purged, not just skipped');
+  {
+    // Reproduces the live-verified staging repro directly: a draft saved
+    // before this guard existed (or from any other bug) contains the
+    // signed-in email under "mWater". restore() must never apply it to the
+    // Water field, and must remove it from storage so it cannot keep
+    // reappearing on every future refresh -- rejectIfEmailShaped() elsewhere
+    // in this app only ever blocked a *save*, never cleaned up a bad value
+    // already sitting in storage from before it existed.
+    localStorage.setItem(KEY, JSON.stringify({ mWater: 'skylerhunze98@gmail.com', cWater: 'Lake Mendota' }));
+    fields.mWater.value = '';
+    fields.cWater.value = '';
+    restore();
+    check('Water never receives the email-shaped stored value', fields.mWater.value === '');
+    check('a real, non-identity stored value still restores normally alongside it', fields.cWater.value === 'Lake Mendota');
+    const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
+    check('the corrupted key is purged from storage, not left to reappear next refresh', !('mWater' in stored));
+    check('the valid key beside it is left alone in storage', stored.cWater === 'Lake Mendota');
+    fields.mWater.value = '';
+    restore();
+    check('a second restore after the purge finds nothing left to (wrongly) apply', fields.mWater.value === '');
+  }
 
   section('P2-10: draft clears after a successful Mission/catch');
   clearDraft();
