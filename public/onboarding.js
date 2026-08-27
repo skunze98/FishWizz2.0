@@ -15,7 +15,15 @@
  // sits underneath it in the stacking order and none of them were reachable
  // again without a full page reload. Always-present close + backdrop click,
  // mirroring launch.js's own onboarding modal, which already had both.
- function closeWizard(d){d.remove();showing=false}
+ // P2-10 ("established users do not see onboarding after every refresh"):
+ // closing without finishing used to leave no trace at all, so the wizard
+ // fired again on every single subsequent refresh -- not a hard block like
+ // the P1-7 bug, but the exact "repeatedly returned" evidence on its own.
+ // Setting the same per-account flag maybeShow() checks (the one finish()
+ // also sets) means "skip for now" behaves like launch.js's own former
+ // "Explore first" button did: quiet unless the user replays it from
+ // Profile's "Review setup" control, which explicitly clears this flag.
+ function closeWizard(d){if(activeUser)localStorage.setItem(`atlas:onboarded:${activeUser}`,'1');d.remove();showing=false}
  function showWizard(p){if(showing||$('atlasOnboarding'))return;showing=true;let step=0,state={display_name:p?.display_name||'',experience_level:p?.experience_level||'',home_region:p?.home_region||'',preferred_species:[...(p?.preferred_species||[])],access_style:p?.access_style||'',gear_status:p?.gear_status||''};const d=document.createElement('div');d.id='atlasOnboarding';d.innerHTML='<div class="onboard-backdrop"><button type="button" class="onboard-close" id="onboardClose" aria-label="Close, finish this later">×</button><div class="onboard-card" id="onboardCard"></div></div>';document.body.appendChild(d);const card=$('onboardCard');$('onboardClose').onclick=()=>closeWizard(d);d.querySelector('.onboard-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('onboard-backdrop'))closeWizard(d)});
   function progress(){return `<div class="onboard-progress">${[0,1,2,3,4].map(i=>`<span class="${i<=step?'on':''}"></span>`).join('')}</div>`}
   function choice(key,value,title,sub){return `<button type="button" class="onboard-choice${state[key]===value?' selected':''}" data-key="${key}" data-value="${value}"><b>${title}</b><span>${sub}</span></button>`}

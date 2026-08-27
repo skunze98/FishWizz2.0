@@ -46,6 +46,10 @@ const LEGACY = [
   // than a direct call site, exact ordering only affects which very first
   // synthetic re-dispatch it can observe, not correctness.
   '/location-state.js',
+  // P2-10: static Mission/Catch fields exist in index.html's initial markup
+  // (unlike mission-v3.js's own extra condition fields), so this can restore
+  // a guest draft into them eagerly, same as location-state.js above.
+  '/guest-draft.js',
   '/launch.js',
   '/pwa.js',
   '/fishwizz-shell-v2.js',

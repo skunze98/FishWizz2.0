@@ -34,6 +34,7 @@ html[data-fishwizz-shell-v2="1"] #inventoryAdd h2{font-size:1.35rem}
 html[data-fishwizz-shell-v2="1"] #inventoryAdd details{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.10)}
 html[data-fishwizz-shell-v2="1"] #inventoryAdd details summary{color:#e7bd57}
 html[data-fishwizz-shell-v2="1"] .fw-auth-banner{margin:0 0 14px;padding:15px 16px;border:1px solid rgba(255,255,255,.22);border-radius:18px;background:linear-gradient(135deg,#08150f,#07110d);display:grid;gap:12px;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+html[data-fishwizz-shell-v2="1"] .fw-gated-hint{margin:6px 0 0;color:#e1bf63}
 html[data-fishwizz-shell-v2="1"] .fw-auth-banner h3{margin:0;color:#8be267;font-size:1rem}
 html[data-fishwizz-shell-v2="1"] .fw-auth-banner p{margin:4px 0 0;color:#c3cbc4;font-size:.9rem}
 html[data-fishwizz-shell-v2="1"] .fw-auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
