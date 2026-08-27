@@ -61,6 +61,11 @@ const LEGACY = [
   // it needs the LEGACY chain's synthetic re-dispatch rather than a lazy
   // pwa.js group (which loads well after that event has already fired).
   '/field-guard.js',
+  // TEMPORARY -- P0-1 staging diagnostic. Loaded last so window.FishWizzGuard
+  // (field-guard.js, immediately above) already exists to wrap. Remove this
+  // line and public/diag-identity-p0.js together once P0-1 is resolved --
+  // see that file's own header for the full removal note.
+  '/diag-identity-p0.js',
 ];
 
 let _session = null;
