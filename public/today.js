@@ -26,7 +26,12 @@
     window.FishWizzGearState?.ensure?.({force})||Promise.resolve({combos:[],lures:[]}),
     api(`/rest/v1/catches?select=id,water,species,caught_at,lure_bait&owner_id=eq.${uid}&order=caught_at.desc&limit=3`),
    ]);
-   lastSnapshot={combos:gear.combos?.length||0,lures:gear.lures?.length||0,catches:(window.catches||[]).length,recent:recentCatches||[],last:lastMission()};
+   // P1-5 ("expose retrieval failures as an error instead of a legitimate
+   // empty state"): gear.error is set by gear-state.js when the shared fetch
+   // itself failed -- distinct from a genuinely empty account -- so this
+   // widget's pill can say "couldn't check" instead of confidently claiming
+   // "No gear loaded" for what might just be a network hiccup.
+   lastSnapshot={combos:gear.combos?.length||0,lures:gear.lures?.length||0,catches:(window.catches||[]).length,recent:recentCatches||[],last:lastMission(),gearError:!!gear.error};
    lastSnapshotAt=Date.now();
    return lastSnapshot;
   }catch(e){
@@ -43,7 +48,7 @@
   else if(!gear&&p?.gear_status!=='none'){nextTitle='Build your plan';nextText='You do not need inventory to fish with Atlas. Add gear later if you want setup-specific recommendations.';primary=['Build My Mission','mission'];secondary=['Add Gear','arsenal']}
   else{nextTitle='Build today’s Mission';nextText=gear?`Atlas can use your saved gear and current spot to narrow the plan.`:'Atlas will recommend a practical general setup for this trip.';primary=['Build My Mission','mission'];secondary=['Ask Atlas','ask']}
   const meta=[p?.experience_level?label(p.experience_level):'',targets.length?targets.slice(0,2).join(' · '):'',p?.access_style?label(p.access_style):''].filter(Boolean).join(' · ');
-  el.innerHTML=`<div class="atlas-today-head"><div><span class="eyebrow">Today with Atlas</span><h2>${session?.user?`Ready, ${esc(name)}?`:'Your personal fishing companion'}</h2>${meta?`<p class="muted atlas-today-kicker">${esc(meta)}</p>`:''}</div>${data.catches?`<span class="pill">${data.catches} catch${data.catches===1?'':'es'}</span>`:''}</div><div class="atlas-today-status"><span class="pill">${pos?'Spot ready':'Choose spot'}</span><span class="pill">${gear?`${data.combos} setups · ${data.lures} tackle`:esc(label(p?.gear_status)||'No gear loaded')}</span></div><div class="atlas-next"><span class="eyebrow">Next best step</span><h3>${esc(nextTitle)}</h3><p class="muted">${esc(nextText)}</p><div class="atlas-today-actions"><button id="todayPrimary" class="btn gold" type="button">${esc(primary[0])}</button><button id="todaySecondary" class="btn ghost" type="button">${esc(secondary[0])}</button></div></div>${memoryHtml(data)}`;
+  el.innerHTML=`<div class="atlas-today-head"><div><span class="eyebrow">Today with Atlas</span><h2>${session?.user?`Ready, ${esc(name)}?`:'Your personal fishing companion'}</h2>${meta?`<p class="muted atlas-today-kicker">${esc(meta)}</p>`:''}</div>${data.catches?`<span class="pill">${data.catches} catch${data.catches===1?'':'es'}</span>`:''}</div><div class="atlas-today-status"><span class="pill">${pos?'Spot ready':'Choose spot'}</span><span class="pill">${gear?`${data.combos} setups · ${data.lures} tackle`:data.gearError?'Gear status unknown — check your connection':esc(label(p?.gear_status)||'No gear loaded')}</span></div><div class="atlas-next"><span class="eyebrow">Next best step</span><h3>${esc(nextTitle)}</h3><p class="muted">${esc(nextText)}</p><div class="atlas-today-actions"><button id="todayPrimary" class="btn gold" type="button">${esc(primary[0])}</button><button id="todaySecondary" class="btn ghost" type="button">${esc(secondary[0])}</button></div></div>${memoryHtml(data)}`;
   $('todayPrimary').onclick=()=>go(primary[1]);$('todaySecondary').onclick=()=>go(secondary[1]);$('repeatLastMission')?.addEventListener('click',()=>{if(data.last)document.dispatchEvent(new CustomEvent('atlas:repeat-last-mission',{detail:data.last}))});$('useRecentCatch')?.addEventListener('click',()=>{const c=data.recent?.[0];if(!c)return;if($('mWater'))window.FishWizzGuard?.setGuardedValue?.($('mWater'),c.water||'','water');if($('mTarget')&&c.species){const o=[...$('mTarget').options].find(x=>x.value===c.species||x.textContent===c.species);if(o)$('mTarget').value=o.value}showPage('mission');stat(`Loaded ${c.water||'recent water'} from your Catch Log.`,'ok')});
  }
  function go(dest){if(dest==='ask'){const a=$('askAtlas');if(a){a.scrollIntoView({behavior:'smooth',block:'start'});$('askAtlasInput')?.focus();return}dest='mission'}showPage(dest)}
