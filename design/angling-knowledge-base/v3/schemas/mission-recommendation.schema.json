@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/mission-recommendation.schema.json",
+  "description": "requirement-8: an immutable snapshot of what was actually recommended at Mission-build time, linked to the EXISTING fishing_sessions/mission_feedback tables -- not stored only in mission_feedback.recommendation, since feedback may never be submitted.",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "fishing_session_id", "scorer_version", "observed_conditions", "user_constraint_tags",
+    "gear_snapshot", "ranked_results", "regulation_snapshot", "created_at"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "fishing_session_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid",
+      "description": "FK to the EXISTING public.fishing_sessions.id -- reuses the real table already in production rather than a parallel one." },
+    "scorer_version": { "type": "string" },
+    "observed_conditions": { "$ref": "shared-definitions.schema.json#/$defs/observed_conditions" },
+    "user_constraint_tags": { "type": "array", "items": { "$ref": "shared-definitions.schema.json#/$defs/user_constraint_tag_enum" } },
+    "gear_snapshot": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+      "required": ["combo_id", "rod_id", "reel_id", "mapped_rod_power", "mapped_line_test_lb"],
+      "properties": { "combo_id": { "type": "string" }, "rod_id": { "type": ["string", "null"] }, "reel_id": { "type": ["string", "null"] },
+        "mapped_rod_power": { "type": ["string", "null"] }, "mapped_line_test_lb": { "type": ["number", "null"] } } },
+      "description": "The owned-gear rows AS THEY WERE, plus their mapped enum values at recommendation time -- so a later edit to the free-text->enum mapping table never rewrites history." },
+    "ranked_results": { "type": "array", "minItems": 0, "items": { "type": "object", "additionalProperties": false,
+      "required": ["rank", "tactic_id", "tactic_content_version", "score", "matched_axes", "excluded_axes",
+        "gear_compatibility_result", "confidence", "evidence_claim_ids"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1 },
+        "tactic_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+        "tactic_content_version": { "type": "integer",
+          "description": "Snapshot of tactic.content_version AT recommendation time -- the tactic can change later without altering what this record says was recommended." },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "matched_axes": { "type": "array", "items": { "type": "string" } },
+        "excluded_axes": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+          "required": ["axis", "reason"], "properties": { "axis": { "type": "string" }, "reason": { "enum": ["no_constraint", "not_applicable", "mission_missing", "mission_unknown"] } } } },
+        "gear_compatibility_result": { "enum": ["owned_exact", "owned_substitute", "not_owned"] },
+        "confidence": { "$ref": "shared-definitions.schema.json#/$defs/confidence_enum" },
+        "evidence_claim_ids": { "type": "array", "items": { "$ref": "shared-definitions.schema.json#/$defs/uuid" } }
+      } } },
+    "regulation_snapshot": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+      "required": ["provision_id", "provision_type", "verified_date", "resolved_value"],
+      "properties": { "provision_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" }, "provision_type": { "type": "string" },
+        "verified_date": { "$ref": "shared-definitions.schema.json#/$defs/date" }, "resolved_value": {} } },
+      "description": "Which regulation_provision rows (and their verified_date) actually governed this recommendation -- a later regulation change never rewrites what the angler was told that day." },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" }
+  }
+}

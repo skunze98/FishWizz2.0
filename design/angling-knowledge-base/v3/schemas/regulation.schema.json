@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/regulation.schema.json",
+  "title": "regulation_provision",
+  "description": "requirement-6 fix: the gate-2 monolithic `regulation` (one row, one daily_limit, one season) is replaced by an ATOMIC provision. Multiple provisions of different provision_type, different geographic_scope, and different temporal_scope can independently apply to the same species/water/date; resolution (highest scope-specificity + is_emergency + precedence_rank, per-provision-type, never all-or-nothing) is the import validator's job, demonstrated in the readable artifact's precedence example.",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "provision_slug", "content_fingerprint", "provision_type", "geographic_scope",
+    "temporal_scope", "species", "combined_with_species_ids", "value", "is_emergency",
+    "precedence_rank", "official_wording", "source_location", "status", "mandatory_reverify_by",
+    "verified_date", "supersedes", "superseded_by", "evidence", "record_status",
+    "reviewed_by", "reviewed_at", "approved_by", "approved_at",
+    "created_at", "updated_at", "published_at", "schema_version", "content_version"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "provision_slug": { "type": "string", "pattern": "^[a-z_]+\\.[a-z_]+\\.[a-z0-9-]+\\.[a-z0-9-]+\\.[a-z_]+\\.[0-9]{4}$",
+      "description": "{jurisdiction}.{scope_type}.{waterbody-or-area-slug}.{species-or-group}.{provision_type}.{year} -- collision-safe: a named water's daily_limit provision and its size_rule provision get DIFFERENT slugs, and two different waters never collide." },
+    "content_fingerprint": { "$ref": "shared-definitions.schema.json#/$defs/sha256_hex" },
+
+    "provision_type": { "enum": ["targeting_permitted", "catch_and_release_permitted", "harvest_permitted",
+      "daily_limit", "possession_limit", "size_rule", "bait_restriction", "gear_restriction", "method_restriction"] },
+
+    "geographic_scope": { "type": "object", "additionalProperties": false,
+      "required": ["type", "waterbody_id", "waterbody_name", "district_code", "great_lake_name", "tributary_of", "boundary_jurisdictions", "tribal_territory"],
+      "properties": {
+        "type": { "enum": ["statewide", "named_water", "district", "great_lake", "tributary", "boundary_water", "ceded_territory"] },
+        "waterbody_id": { "type": ["string", "null"], "format": "uuid" },
+        "waterbody_name": { "type": ["string", "null"] },
+        "district_code": { "type": ["string", "null"] },
+        "great_lake_name": { "type": ["string", "null"], "enum": ["Superior", "Michigan", null] },
+        "tributary_of": { "type": ["string", "null"] },
+        "boundary_jurisdictions": { "type": ["array", "null"], "items": { "enum": ["MN", "WI"] } },
+        "tribal_territory": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "named_water" } } }, "then": { "required": ["waterbody_name"], "properties": { "waterbody_name": { "type": "string" } } } },
+        { "if": { "properties": { "type": { "const": "great_lake" } } }, "then": { "required": ["great_lake_name"], "properties": { "great_lake_name": { "type": "string" } } } },
+        { "if": { "properties": { "type": { "const": "tributary" } } }, "then": { "required": ["tributary_of"], "properties": { "tributary_of": { "type": "string" } } } },
+        { "if": { "properties": { "type": { "const": "boundary_water" } } }, "then": { "required": ["boundary_jurisdictions"], "properties": { "boundary_jurisdictions": { "type": "array", "minItems": 2 } } } },
+        { "if": { "properties": { "type": { "const": "ceded_territory" } } }, "then": { "required": ["tribal_territory"], "properties": { "tribal_territory": { "type": "string" } } } }
+      ]
+    },
+
+    "temporal_scope": { "type": "object", "additionalProperties": false,
+      "required": ["type", "fixed_interval", "annual_recurrence"],
+      "properties": {
+        "type": { "enum": ["fixed_interval", "annual_recurrence"] },
+        "fixed_interval": { "anyOf": [
+          { "type": "object", "additionalProperties": false, "required": ["start", "end"],
+            "properties": { "start": { "$ref": "shared-definitions.schema.json#/$defs/date" }, "end": { "type": ["string", "null"], "format": "date" } } },
+          { "type": "null" } ] },
+        "annual_recurrence": { "anyOf": [
+          { "type": "object", "additionalProperties": false, "required": ["start_month_day", "end_month_day"],
+            "properties": { "start_month_day": { "$ref": "shared-definitions.schema.json#/$defs/month_day" }, "end_month_day": { "$ref": "shared-definitions.schema.json#/$defs/month_day" } } },
+          { "type": "null" } ] }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "fixed_interval" } } }, "then": { "required": ["fixed_interval"], "properties": { "fixed_interval": { "type": "object" }, "annual_recurrence": { "const": null } } } },
+        { "if": { "properties": { "type": { "const": "annual_recurrence" } } }, "then": { "required": ["annual_recurrence"], "properties": { "annual_recurrence": { "type": "object" }, "fixed_interval": { "const": null } } } }
+      ],
+      "description": "requirement-6 fix: real date intervals for one-time/dated rules, OR an explicit named recurrence rule for standing annual seasons -- never bare MM-DD strings pretending to be self-sufficient."
+    },
+
+    "species": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false,
+      "required": ["species_id"], "properties": { "species_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" } } } },
+    "combined_with_species_ids": { "type": "array", "items": { "$ref": "shared-definitions.schema.json#/$defs/uuid" } },
+
+    "value": { "description": "Discriminated by provision_type -- see allOf below.", "type": ["object", "boolean", "integer"] },
+
+    "is_emergency": { "type": "boolean" },
+    "precedence_rank": { "type": "integer" },
+    "official_wording": { "type": "string", "minLength": 1 },
+    "source_location": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["current", "proposed", "expired", "superseded"] },
+    "mandatory_reverify_by": { "$ref": "shared-definitions.schema.json#/$defs/date" },
+    "verified_date": { "$ref": "shared-definitions.schema.json#/$defs/date" },
+    "supersedes": { "type": ["string", "null"], "format": "uuid" },
+    "superseded_by": { "type": ["string", "null"], "format": "uuid" },
+
+    "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "shared-definitions.schema.json#/$defs/evidence_ref" },
+      "description": "requirement-6 fix: audited claim_id references, same shape as tactic.evidence -- the separate, unaudited source_ids path from gate 2 is removed." },
+
+    "record_status": { "$ref": "shared-definitions.schema.json#/$defs/record_status_enum" },
+    "reviewed_by": { "type": ["string", "null"], "format": "uuid" }, "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+    "approved_by": { "type": ["string", "null"], "format": "uuid" }, "approved_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "updated_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" },
+    "schema_version": { "type": "string", "const": "3.0.0" },
+    "content_version": { "type": "integer", "minimum": 1 }
+  },
+  "allOf": [
+    { "if": { "properties": { "provision_type": { "enum": ["daily_limit", "possession_limit"] } } },
+      "then": { "properties": { "value": { "type": "integer", "minimum": 0 } } } },
+    { "if": { "properties": { "provision_type": { "const": "size_rule" } } },
+      "then": { "properties": { "value": { "type": "object", "additionalProperties": false, "required": ["rule_type", "min_in", "max_in"],
+        "properties": { "rule_type": { "enum": ["minimum", "maximum", "protected_slot", "one_over_threshold"] },
+          "min_in": { "type": ["number", "null"] }, "max_in": { "type": ["number", "null"] } } } } } },
+    { "if": { "properties": { "provision_type": { "enum": ["targeting_permitted", "catch_and_release_permitted", "harvest_permitted"] } } },
+      "then": { "properties": { "value": { "type": "boolean" } } } },
+    { "if": { "properties": { "provision_type": { "enum": ["bait_restriction", "gear_restriction", "method_restriction"] } } },
+      "then": { "properties": { "value": { "type": "object", "additionalProperties": false, "required": ["description"], "properties": { "description": { "type": "string", "minLength": 1 } } } } } },
+
+    { "if": { "properties": { "record_status": { "const": "published" } } },
+      "then": { "required": ["reviewed_by", "reviewed_at", "approved_by", "approved_at", "published_at"] } },
+    { "if": { "properties": { "status": { "const": "superseded" } } },
+      "then": { "required": ["superseded_by"], "properties": { "superseded_by": { "type": "string" } } } },
+    { "if": { "properties": { "record_status": { "const": "published" }, "geographic_scope": { "properties": { "type": { "const": "named_water" } } } } },
+      "then": { "properties": { "geographic_scope": { "properties": { "waterbody_id": { "type": "string" } }, "required": ["waterbody_id"] } } },
+      "description": "requirement-6 fix: name-only matching is fine in draft/staging, but a PUBLISHED named_water provision must resolve to a real waterbody_id FK." }
+  ]
+}

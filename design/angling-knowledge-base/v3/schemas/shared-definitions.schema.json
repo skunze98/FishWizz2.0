@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/shared-definitions.schema.json",
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "date": { "type": "string", "format": "date" },
+    "date_time": { "type": "string", "format": "date-time" },
+    "sha256_hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "month_day": { "type": "string", "pattern": "^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$" },
+
+    "record_status_enum": { "enum": ["draft", "reviewed", "approved", "published", "retired", "superseded"] },
+    "reviewer_status_enum": { "enum": ["unreviewed", "reviewer_confirmed", "reviewer_flagged"] },
+    "evidence_type_enum": { "enum": ["primary_official", "peer_reviewed", "expert_consensus", "manufacturer_guidance", "anecdotal", "expert_synthesis"] },
+    "confidence_enum": { "enum": ["established", "expert_consensus", "anecdotal", "estimated"] },
+    "geographic_applicability_enum": { "enum": ["MN", "WI", "MN_WI", "great_lakes_only", "national"] },
+
+    "platform_enum": { "enum": ["shore", "dock", "wading", "boat", "kayak", "canoe", "ice"],
+      "description": "Access method ONLY. Exactly 7 values, used identically by applies_when.platform AND environment_applicability -- fixes the gate-2 mismatch (environment_applicability previously used a different 6-key vocabulary with 'kayak_canoe' merged and 'river' wrongly included as a platform)." },
+    "water_environment_enum": { "enum": ["natural_lake", "reservoir_flowage", "river", "stream", "great_lake", "tributary"] },
+    "structure_enum": { "enum": ["point", "drop_off", "channel_edge", "hump", "flat", "basin", "current_seam"] },
+    "cover_enum": { "enum": ["none", "vegetation", "wood", "docks", "boulders"] },
+    "substrate_enum": { "enum": ["mud", "sand", "gravel", "rock"] },
+    "current_enum": { "enum": ["none", "light", "moderate", "strong"] },
+    "clarity_enum": { "enum": ["clear", "stained", "turbid"] },
+    "wind_enum": { "enum": ["calm", "light", "moderate", "high"] },
+    "light_enum": { "enum": ["low", "moderate", "bright"] },
+    "barometric_pressure_trend_enum": { "enum": ["falling", "steady", "rising"] },
+    "fishing_pressure_enum": { "enum": ["low", "moderate", "high"] },
+    "biological_stage_enum": { "enum": ["pre_spawn", "spawn", "post_spawn", "early_summer", "mid_summer", "fall_turnover", "early_ice", "midwinter_ice", "late_ice"] },
+    "weather_front_enum": { "enum": ["passed_recently", "stable", "approaching"] },
+    "water_level_trend_enum": { "enum": ["rising", "falling", "stable"] },
+    "recent_precipitation_enum": { "enum": ["none", "light", "heavy"] },
+    "dissolved_oxygen_status_enum": { "enum": ["normal", "stressed_suspected"],
+      "description": "Anglers cannot directly measure DO. This is an inferred PROXY only -- populated from documented indicators (under-ice duration + snow cover, algae bloom presence, known winterkill-prone water) never a raw sensor reading. The proxy basis must be stated in the tactic/claim text wherever this field is used as anything other than unconstrained." },
+    "observed_fish_activity_enum": { "enum": ["active", "neutral", "inactive"] },
+    "time_of_day_enum": { "enum": ["dawn", "morning", "midday", "afternoon", "dusk", "night"] },
+    "bait_method_tag_enum": { "enum": ["live_bait", "artificial_only", "cut_bait", "prepared_bait", "fly", "trolling", "still_fishing", "casting", "jigging"] },
+    "casting_access_enum": { "enum": ["open", "limited", "tight"] },
+
+    "rod_power_enum": { "enum": ["ultralight", "light", "medium_light", "medium", "medium_heavy", "heavy", "specialized_musky", "specialized_sturgeon"] },
+    "rod_action_enum": { "enum": ["slow", "moderate", "fast", "extra_fast"] },
+    "reel_type_enum": { "enum": ["spinning", "baitcasting", "either"] },
+    "line_material_enum": { "enum": ["monofilament", "fluorocarbon", "braid", "either"] },
+    "applicability_enum": { "enum": ["primary", "viable", "limited", "not_applicable"] },
+
+    "unit_weight_enum": { "enum": ["oz", "g"] },
+    "unit_length_enum": { "enum": ["in", "ft", "cm", "m"] },
+    "unit_temperature_enum": { "enum": ["F", "C"] },
+    "unit_line_test_enum": { "enum": ["lb", "kg"] },
+    "unit_time_enum": { "enum": ["s"] },
+
+    "range": {
+      "type": "object", "additionalProperties": false,
+      "required": ["min", "max", "unit", "precision"],
+      "properties": {
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "unit": { "type": "string" },
+        "normalized": { "type": "object", "additionalProperties": false,
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "unit": { "type": "string" } } },
+        "precision": { "enum": ["exact", "general", "unknown"] }
+      },
+      "if": { "properties": { "precision": { "const": "exact" } } },
+      "then": { "required": ["min", "max"], "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+      "allOf": [ { "if": { "required": ["min", "max"], "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+                   "then": { "properties": { "min": { "maximum": { "$data": "1/max" } } } } } ],
+      "description": "min<=max is NOT fully expressible in portable JSON Schema without a $data extension (ajv-specific, enabled in the validator config below); the companion validator AND the Postgres CHECK constraint in the DDL are the two independent enforcement layers that always run regardless of $data support."
+    },
+
+    "condition_constraint": {
+      "description": "Wrapper for ONE axis inside a TACTIC's applies_when. Exactly one of three states, always present (never omitted) -- resolves the gate-2 contradiction where applies_when required every axis yet 'no constraint' meant omitting one. 'unconstrained' explicitly means the tactic works across the full range of this axis; 'not_applicable' means this axis has no meaning for this kind of tactic at all (e.g. current for a stillwater-only presentation). Only 'constrained' carries a value.",
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": { "state": { "enum": ["constrained", "unconstrained", "not_applicable"] }, "value": {} },
+      "if": { "properties": { "state": { "const": "constrained" } } },
+      "then": { "required": ["value"] },
+      "else": { "not": { "required": ["value"] } }
+    },
+    "condition_observation": {
+      "description": "Wrapper for ONE axis inside a MISSION's observed_conditions. A DIFFERENT three states than condition_constraint -- mission-state concepts (missing vs. explicitly-unknown) never leak into a tactic record, and tactic-state concepts (unconstrained vs. not_applicable) never leak into a mission record.",
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": { "state": { "enum": ["observed", "unknown", "missing"] }, "value": {} },
+      "if": { "properties": { "state": { "const": "observed" } } },
+      "then": { "required": ["value"] },
+      "else": { "not": { "required": ["value"] } }
+    },
+
+    "condition_set": {
+      "description": "TACTIC-side condition envelope. Every axis key is REQUIRED (satisfies 'every axis present'); each value is a condition_constraint, whose OWN state field is what actually says constrained/unconstrained/not_applicable (satisfies 'no ambiguity about what omission means' -- nothing is ever truly omitted).",
+      "type": "object", "additionalProperties": false,
+      "required": ["platform", "water_environment", "season", "depth_ft", "structure", "cover", "substrate",
+        "current", "clarity", "wind", "light", "barometric_pressure_trend", "fishing_pressure",
+        "weather_front", "water_level_trend", "recent_precipitation", "dissolved_oxygen_status",
+        "observed_fish_activity", "time_of_day"],
+      "properties": {
+        "platform": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/platform_enum" } } } },
+        "water_environment": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/water_environment_enum" } } } },
+        "season": { "type": "object", "additionalProperties": false, "required": ["biological_stage", "calendar_range", "water_temp_f"],
+          "properties": {
+            "biological_stage": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/biological_stage_enum" } } },
+            "calendar_range": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "object", "additionalProperties": false, "required": ["start_month_day", "end_month_day", "varies_by_latitude"], "properties": { "start_month_day": { "$ref": "#/$defs/month_day" }, "end_month_day": { "$ref": "#/$defs/month_day" }, "varies_by_latitude": { "type": "boolean" } } } } },
+            "water_temp_f": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/range" } } }
+          } },
+        "depth_ft": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/range" } } },
+        "structure": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/structure_enum" } } } },
+        "cover": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/cover_enum" } } } },
+        "substrate": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/substrate_enum" } } } },
+        "current": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/current_enum" } } },
+        "clarity": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/clarity_enum" } } },
+        "wind": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/wind_enum" } } },
+        "light": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/light_enum" } } },
+        "barometric_pressure_trend": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/barometric_pressure_trend_enum" } } },
+        "fishing_pressure": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/fishing_pressure_enum" } } },
+        "weather_front": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/weather_front_enum" } } },
+        "water_level_trend": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/water_level_trend_enum" } } },
+        "recent_precipitation": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/recent_precipitation_enum" } } },
+        "dissolved_oxygen_status": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/dissolved_oxygen_status_enum" } } },
+        "observed_fish_activity": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "$ref": "#/$defs/observed_fish_activity_enum" } } },
+        "time_of_day": { "allOf": [{ "$ref": "#/$defs/condition_constraint" }], "properties": { "value": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/time_of_day_enum" } } } }
+      }
+    },
+
+    "observed_conditions": {
+      "description": "MISSION-side observation envelope -- same axis names/vocab as condition_set, but wrapped in condition_observation (observed/unknown/missing), never condition_constraint. This is the schema requirement-3's 'mission-state concepts must not be stored as tactic constraints' resolves to: two schemas, shared enums, different wrappers, never mixed.",
+      "type": "object", "additionalProperties": false,
+      "required": ["platform", "water_environment", "water_temp_f", "depth_ft", "structure", "cover", "substrate",
+        "current", "clarity", "wind", "light", "barometric_pressure_trend", "fishing_pressure",
+        "weather_front", "water_level_trend", "recent_precipitation", "dissolved_oxygen_status",
+        "observed_fish_activity", "time_of_day"],
+      "properties": {
+        "platform": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/platform_enum" } } },
+        "water_environment": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/water_environment_enum" } } },
+        "water_temp_f": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "type": "number" } } },
+        "depth_ft": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "type": "number" } } },
+        "structure": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/structure_enum" } } },
+        "cover": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/cover_enum" } } },
+        "substrate": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/substrate_enum" } } },
+        "current": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/current_enum" } } },
+        "clarity": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/clarity_enum" } } },
+        "wind": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/wind_enum" } } },
+        "light": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/light_enum" } } },
+        "barometric_pressure_trend": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/barometric_pressure_trend_enum" } } },
+        "fishing_pressure": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/fishing_pressure_enum" } } },
+        "weather_front": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/weather_front_enum" } } },
+        "water_level_trend": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/water_level_trend_enum" } } },
+        "recent_precipitation": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/recent_precipitation_enum" } } },
+        "dissolved_oxygen_status": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/dissolved_oxygen_status_enum" } } },
+        "observed_fish_activity": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/observed_fish_activity_enum" } } },
+        "time_of_day": { "allOf": [{ "$ref": "#/$defs/condition_observation" }], "properties": { "value": { "$ref": "#/$defs/time_of_day_enum" } } }
+      }
+    },
+
+    "environment_applicability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["shore", "dock", "wading", "boat", "kayak", "canoe", "ice"],
+      "properties": {
+        "shore": { "$ref": "#/$defs/applicability_enum" }, "dock": { "$ref": "#/$defs/applicability_enum" },
+        "wading": { "$ref": "#/$defs/applicability_enum" }, "boat": { "$ref": "#/$defs/applicability_enum" },
+        "kayak": { "$ref": "#/$defs/applicability_enum" }, "canoe": { "$ref": "#/$defs/applicability_enum" },
+        "ice": { "$ref": "#/$defs/applicability_enum" }
+      },
+      "description": "Same 7-key platform vocabulary as applies_when.platform (fixed from gate 2's mismatched 6-key version). river is correctly absent -- river is a water_environment, not a platform."
+    },
+
+    "user_constraint_tag_enum": { "enum": ["artificial_only", "no_live_bait", "limited_casting_access", "shore_bound", "no_boat"],
+      "description": "The closed, controlled set of user-constraint tags a Mission request may pass. An unrecognized tag is a validation error (negative-tested below), never silently ignored." },
+
+    "evidence_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["claim_id"],
+      "properties": { "claim_id": { "$ref": "#/$defs/uuid" } }
+    }
+  }
+}

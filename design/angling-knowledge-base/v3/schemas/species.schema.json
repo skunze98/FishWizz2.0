@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/species.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "species_slug", "scientific_name", "common_name_primary", "common_name_aliases",
+    "angling_category_slugs", "taxonomic_note", "content_fingerprint", "record_status",
+    "created_at", "updated_at", "verified_at", "published_at", "schema_version", "content_version"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "species_slug": { "type": "string", "pattern": "^species:[a-z]+-[a-z]+$" },
+    "scientific_name": { "type": "string", "minLength": 1 },
+    "common_name_primary": { "type": "string", "minLength": 1 },
+    "common_name_aliases": {
+      "description": "STORAGE FIX (gate-2 parity gap): backed by species_alias table below, not dropped on import.",
+      "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["name", "region", "note"],
+        "properties": { "name": { "type": "string" }, "region": { "enum": ["MN", "WI", "great_lakes", "national"] }, "note": { "type": ["string", "null"] } } }
+    },
+    "angling_category_slugs": { "type": "array", "items": { "type": "string" } },
+    "taxonomic_note": { "type": ["string", "null"] },
+    "content_fingerprint": { "$ref": "shared-definitions.schema.json#/$defs/sha256_hex" },
+    "record_status": { "$ref": "shared-definitions.schema.json#/$defs/record_status_enum" },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "updated_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "verified_at": { "$ref": "shared-definitions.schema.json#/$defs/date" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" },
+    "schema_version": { "type": "string", "const": "3.0.0" },
+    "content_version": { "type": "integer", "minimum": 1 }
+  },
+  "if": { "properties": { "record_status": { "const": "published" } } },
+  "then": { "properties": { "published_at": { "type": "string" } }, "required": ["published_at"] }
+}

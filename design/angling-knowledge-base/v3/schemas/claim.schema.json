@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/claim.schema.json",
+  "description": "gate-2 parity fix: subject_table/subject_id are now REAL DDL columns via three typed join tables (tactic_claim, regulation_provision_claim, species_claim) rather than JSON-only fields with no storage. This schema still carries subject_table/subject_id in the IMPORT payload (so a research pass can express 'this claim is about tactic X, field Y' in one JSON object); the import process resolves that pair into the correct typed join-table INSERT.",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "source_id", "subject_table", "subject_id", "field_path", "paraphrased_claim",
+    "source_location", "evidence_type", "access_date", "geographic_applicability",
+    "reviewer_status", "reviewer_id", "reviewed_at", "created_at"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "source_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "subject_table": { "enum": ["tactic", "regulation_provision", "species"] },
+    "subject_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "field_path": { "type": "string", "minLength": 1,
+      "description": "Exact JSON field path within the subject record this claim supports, e.g. 'equipment.line_test_lb' or 'works_when'." },
+    "paraphrased_claim": { "type": "string", "minLength": 10 },
+    "source_location": { "type": "string", "minLength": 1 },
+    "evidence_type": { "$ref": "shared-definitions.schema.json#/$defs/evidence_type_enum" },
+    "access_date": { "$ref": "shared-definitions.schema.json#/$defs/date" },
+    "geographic_applicability": { "$ref": "shared-definitions.schema.json#/$defs/geographic_applicability_enum" },
+    "reviewer_status": { "$ref": "shared-definitions.schema.json#/$defs/reviewer_status_enum" },
+    "reviewer_id": { "type": ["string", "null"], "format": "uuid" },
+    "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" }
+  },
+  "if": { "properties": { "reviewer_status": { "const": "reviewer_confirmed" } } },
+  "then": { "required": ["reviewer_id", "reviewed_at"], "properties": { "reviewer_id": { "type": "string" }, "reviewed_at": { "type": "string" } } }
+}

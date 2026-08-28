@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/presentation.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "presentation_slug", "label", "category", "imitates", "intensity_tier",
+    "record_status", "content_fingerprint", "created_at", "updated_at", "published_at",
+    "schema_version", "content_version"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "presentation_slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "label": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "imitates": { "type": ["string", "null"] },
+    "intensity_tier": { "enum": ["subtle", "standard", "aggressive"],
+      "description": "Category-RELATIVE, per gate-2's finesse-generalization fix -- meaningful only compared against other presentations in the same category." },
+    "record_status": { "$ref": "shared-definitions.schema.json#/$defs/record_status_enum" },
+    "content_fingerprint": { "$ref": "shared-definitions.schema.json#/$defs/sha256_hex" },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "updated_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" },
+    "schema_version": { "type": "string", "const": "3.0.0" },
+    "content_version": { "type": "integer", "minimum": 1 }
+  },
+  "if": { "properties": { "record_status": { "const": "published" } } },
+  "then": { "required": ["published_at"], "properties": { "published_at": { "type": "string" } } }
+}

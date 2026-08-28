@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fishwizz.dev/schema/tactic.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "content_fingerprint", "presentation_id", "species", "applies_when",
+    "equipment", "bait_method_tags", "retrieve", "rigging_instructions", "bite_detection",
+    "hookset_fight", "works_when", "fails_when", "diagnostic_signals",
+    "environment_applicability", "conservation_notes", "evidence", "confidence",
+    "geographic_applicability", "verified_date", "alternatives",
+    "record_status", "reviewed_by", "reviewed_at", "approved_by", "approved_at",
+    "superseded_by", "created_at", "updated_at", "published_at",
+    "schema_version", "content_version"],
+  "properties": {
+    "id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+    "content_fingerprint": { "$ref": "shared-definitions.schema.json#/$defs/sha256_hex" },
+    "presentation_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+
+    "species": { "type": "array", "minItems": 1, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["species_id", "is_primary_species", "override_equipment", "override_notes"],
+      "properties": {
+        "species_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+        "is_primary_species": { "type": "boolean" },
+        "override_equipment": { "$ref": "#/$defs/partial_equipment" },
+        "override_notes": { "type": ["string", "null"] }
+      } } },
+
+    "applies_when": { "$ref": "shared-definitions.schema.json#/$defs/condition_set" },
+    "equipment": { "$ref": "#/$defs/equipment" },
+    "bait_method_tags": { "type": "array", "minItems": 1, "items": { "$ref": "shared-definitions.schema.json#/$defs/bait_method_tag_enum" },
+      "description": "STRUCTURED, not prose -- lets a no_live_bait/artificial_only user constraint hard-filter this tactic directly (contains 'live_bait' or 'cut_bait' -> excluded when the Mission passes no_live_bait)." },
+
+    "retrieve": { "type": "object", "additionalProperties": false,
+      "required": ["speed", "cadence", "pause_seconds", "depth_control", "rod_position"],
+      "properties": {
+        "speed": { "enum": ["dead_still", "very_slow", "slow", "moderate", "fast", "varies_by_bite"] },
+        "cadence": { "type": "string", "minLength": 1 },
+        "pause_seconds": { "$ref": "shared-definitions.schema.json#/$defs/range" },
+        "depth_control": { "type": "string", "minLength": 1 },
+        "rod_position": { "type": ["string", "null"] }
+      } },
+
+    "rigging_instructions": { "type": "string", "minLength": 1 },
+    "bite_detection": { "type": "string", "minLength": 1 },
+    "hookset_fight": { "type": "string", "minLength": 1 },
+    "works_when": { "type": "string", "minLength": 1 },
+    "fails_when": { "type": "string", "minLength": 1 },
+    "diagnostic_signals": { "type": "string", "minLength": 1 },
+    "casting_access_required": { "$ref": "shared-definitions.schema.json#/$defs/casting_access_enum" },
+
+    "environment_applicability": { "$ref": "shared-definitions.schema.json#/$defs/environment_applicability" },
+    "conservation_notes": { "type": ["string", "null"] },
+
+    "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence_entry" },
+      "description": "One entry PER covered field_path -- requirement-5 fix: a single claim no longer silently 'supports' the whole record. covers_field_path must be one of REQUIRED_EVIDENCE_FIELD_PATHS (see the import validator); every required path with no matching entry blocks publish." },
+
+    "confidence": { "$ref": "shared-definitions.schema.json#/$defs/confidence_enum" },
+    "geographic_applicability": { "$ref": "shared-definitions.schema.json#/$defs/geographic_applicability_enum" },
+    "verified_date": { "$ref": "shared-definitions.schema.json#/$defs/date" },
+
+    "alternatives": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+      "required": ["related_tactic_id", "relationship_type", "note"],
+      "properties": {
+        "related_tactic_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+        "relationship_type": { "enum": ["next_try", "alternative", "conflicts_with"] },
+        "note": { "type": "string", "minLength": 1 }
+      } } },
+
+    "record_status": { "$ref": "shared-definitions.schema.json#/$defs/record_status_enum" },
+    "reviewed_by": { "type": ["string", "null"], "format": "uuid" },
+    "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+    "approved_by": { "type": ["string", "null"], "format": "uuid" },
+    "approved_at": { "type": ["string", "null"], "format": "date-time" },
+    "superseded_by": { "type": ["string", "null"], "format": "uuid" },
+    "created_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "updated_at": { "$ref": "shared-definitions.schema.json#/$defs/date_time" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" },
+    "schema_version": { "type": "string", "const": "3.0.0" },
+    "content_version": { "type": "integer", "minimum": 1 }
+  },
+  "allOf": [
+    { "if": { "properties": { "record_status": { "const": "published" } } },
+      "then": { "required": ["reviewed_by", "reviewed_at", "approved_by", "approved_at", "published_at"],
+        "properties": { "reviewed_by": { "type": "string" }, "reviewed_at": { "type": "string" },
+          "approved_by": { "type": "string" }, "approved_at": { "type": "string" }, "published_at": { "type": "string" } },
+        "description": "requirement-5: publish REQUIRES all four reviewer/approval fields plus published_at. Whether every referenced claim is actually reviewer_confirmed (and none reviewer_flagged) is a cross-entity check the import validator performs -- JSON Schema alone cannot dereference claim_id and inspect another document's field." } },
+    { "if": { "properties": { "record_status": { "const": "superseded" } } },
+      "then": { "required": ["superseded_by"], "properties": { "superseded_by": { "type": "string" } } } }
+  ],
+  "$defs": {
+    "evidence_entry": { "type": "object", "additionalProperties": false,
+      "required": ["claim_id", "covers_field_path"],
+      "properties": {
+        "claim_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" },
+        "covers_field_path": { "type": "string", "minLength": 1 }
+      } },
+    "equipment": { "type": "object", "additionalProperties": false,
+      "required": ["rod_power", "rod_action", "reel_type", "line_test_lb", "leader", "lure_weight_oz", "hook_size"],
+      "properties": {
+        "rod_power": { "$ref": "shared-definitions.schema.json#/$defs/rod_power_enum" },
+        "rod_action": { "$ref": "shared-definitions.schema.json#/$defs/rod_action_enum" },
+        "reel_type": { "$ref": "shared-definitions.schema.json#/$defs/reel_type_enum" },
+        "line_test_lb": { "$ref": "shared-definitions.schema.json#/$defs/range" },
+        "leader": { "anyOf": [
+          { "type": "object", "additionalProperties": false, "required": ["material", "length_in"],
+            "properties": { "material": { "enum": ["fluorocarbon", "steel", "heavy_mono", "none_required"] },
+              "length_in": { "$ref": "shared-definitions.schema.json#/$defs/range" } } },
+          { "type": "null" } ] },
+        "lure_weight_oz": { "$ref": "shared-definitions.schema.json#/$defs/range" },
+        "hook_size": { "type": ["string", "null"] }
+      } },
+    "partial_equipment": {
+      "description": "requirement-7 fix: a REAL partial-override schema. No `required` array -- every field OPTIONAL. A field present here overrides the base tactic.equipment field of the same name for this species; a field ABSENT here means 'inherit the base tactic's value', never 'must duplicate the whole object'. additionalProperties:false still applies so an override can't introduce an unrelated field.",
+      "anyOf": [
+        { "type": "object", "additionalProperties": false,
+          "properties": {
+            "rod_power": { "$ref": "shared-definitions.schema.json#/$defs/rod_power_enum" },
+            "rod_action": { "$ref": "shared-definitions.schema.json#/$defs/rod_action_enum" },
+            "reel_type": { "$ref": "shared-definitions.schema.json#/$defs/reel_type_enum" },
+            "line_test_lb": { "$ref": "shared-definitions.schema.json#/$defs/range" },
+            "lure_weight_oz": { "$ref": "shared-definitions.schema.json#/$defs/range" },
+            "hook_size": { "type": ["string", "null"] }
+          } },
+        { "type": "null" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "fishwizz-angling-kb-v3",
+  "private": true,
+  "type": "module",
+  "description": "FishWizz angling knowledge base -- gate 3 schema, migration, and validators. Design-time only; not wired into the running app.",
+  "scripts": {
+    "test:ajv": "node ajv-check.mjs",
+    "test:records": "node build-and-validate.mjs",
+    "test:db": "node db-test.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}
