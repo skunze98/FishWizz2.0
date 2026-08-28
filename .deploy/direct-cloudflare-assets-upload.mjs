@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 const apiToken = process.env.CLOUDFLARE_API_TOKEN;
@@ -75,7 +78,14 @@ for (let index = 0; index < session.buckets.length; index += 1) {
   console.log(`Uploaded asset bucket ${index + 1}/${session.buckets.length}`);
 }
 
-const workerSource = `export default { fetch(request, env) { return env.ASSETS.fetch(request); } };`;
+// P1 (release-blocking stabilization, 2026-08-28): this used to be a
+// hardcoded literal duplicating fishwizz-static-worker.mjs's own content --
+// a second, uncoordinated copy of the exact same file that could silently
+// drift from it. Read the one real file instead, so there is exactly one
+// place this worker's source is ever written. See that file's own header
+// for why its Cache-Control logic exists at all (the actual fix for
+// "different tabs load different FishWizz versions").
+const workerSource = fs.readFileSync(path.join(__dirname, 'fishwizz-static-worker.mjs'), 'utf8');
 const metadata = {
   main_module: 'fishwizz-static-worker.mjs',
   compatibility_date: '2026-08-20',

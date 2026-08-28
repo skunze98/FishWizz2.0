@@ -40,7 +40,46 @@
  // that today) is what these other ?.-guarded fields already implied this
  // function should do.
  function card(title,p,primary=false){if(!p)return'';return `<article class="card plan ${primary?'primary':''}"><span class="eyebrow">${title}${p?.inventory_fit?' · YOUR GEAR':''}</span><h3>${esc(p.combo||'Your best matching combo')}</h3><p><b>${esc(p.lure||'Presentation')}</b> · ${esc(p.color||'Match clarity')}</p><p>${esc(p.why||'')}</p><p><b>How:</b> ${esc(p.how||'')}</p>${p.watch_for?`<p><b>Watch:</b> ${esc(p.watch_for)}</p>`:''}${p.switch_when?`<p><b>Switch:</b> ${esc(p.switch_when)}</p>`:''}</article>`}
- async function buildPlan(){try{
+ // P0 (release-blocking stabilization, 2026-08-28): "Mission creation
+ // freezes the application... unresponsive for more than 60 seconds." Once
+ // api.js's own fix (see that file) means a stalled dependency actually
+ // rejects instead of hanging forever, this is the second half: making
+ // sure buildPlan() itself always reaches a real end state, never lets two
+ // builds race each other, and never lets a slow OLD build's eventual
+ // response clobber a newer one the angler already started.
+ //
+ // missionInFlight is the one authoritative "is a build currently running"
+ // flag every entry point (the button's click handler, repeatMission())
+ // shares -- checked synchronously before any await, so a second call
+ // while one is already running is a real no-op, not a race. missionGeneration
+ // is incremented once per REAL build attempt and captured as myGeneration;
+ // every checkpoint after an await compares the two and abandons silently
+ // if they've diverged -- belt-and-suspenders with the in-flight flag for
+ // "Protection against stale responses overwriting newer Mission input",
+ // and independently testable/verifiable on its own.
+ let missionGeneration=0,missionInFlight=false;
+ // Test-only introspection (see globalThis.__fishwizzTest export below) --
+ // never referenced by real app code.
+ function missionDebugState(){return{generation:missionGeneration,inFlight:missionInFlight}}
+ // A real, visible failure state inside #planSummary itself -- not just a
+ // transient stat() toast that can be missed -- with a Retry button that
+ // re-runs buildPlan() without any page refresh. stage is logged to the
+ // console for diagnosis; deliberately never includes water/species/
+ // position/profile values, only which dependency failed and the error's
+ // own (already-generic) message.
+ function missionErrorState(stage,message){
+  console.error(`FishWizz: Mission build failed at stage "${stage}"`);
+  const el=$('planSummary');if(!el)return;
+  el.innerHTML=`<span class="eyebrow">FishWizz Mission</span><h2>Could not build this Mission</h2><p class="bad">${esc(message)}</p><p class="muted tiny">Nothing was changed — your inputs above are exactly as you left them.</p><div class="row"><button id="missionRetry" class="btn gold" type="button">Retry</button></div>`;
+  $('missionRetry')?.addEventListener('click',()=>buildPlan());
+ }
+ async function buildPlan(){
+  if(missionInFlight)return; // duplicate-submission prevention -- checked before any await
+  const myGeneration=++missionGeneration;
+  missionInFlight=true;
+  const btn=$('coach');const busyLabel='Building Mission…';const idleLabel=btn&&btn.dataset.idleLabel||btn?.textContent||'Build my Mission';
+  if(btn){if(!btn.dataset.idleLabel)btn.dataset.idleLabel=idleLabel;btn.disabled=true;btn.textContent=busyLabel}
+  try{
    const waterCheck=window.FishWizzGuard?.rejectIfEmailShaped?.($('mWater')?.value,'water');
    if(waterCheck&&!waterCheck.ok){stat(waterCheck.message,'err');return}
    // P3-16 ("no duplicated sentence starts"): the label below used to read
@@ -50,7 +89,30 @@
    // so the rendered line always doubled up: "Start here: Start on...".
    // mentor-pro.js already renders this same field under "Where:" with no
    // such issue -- matched that label here instead of touching the RPC.
-   stat('Building Arsenal-first Mission…');const loc=missionCoords();if(loc&&!window.atlasLiveWeather)await loadWeather(true);const p=loc?.position,w=window.atlasLiveWeather||null,ap=window.atlasAnglerProfile||null;const context={water:$('mWater').value,target:$('mTarget').value,season:$('mSeason').value,clarity:$('mClarity').value,wind:$('mWind').value,light:$('mLight').value,access:$('mAccess').value,cover:$('mCover').value,current:$('mCurrent').value,depth:$('mDepth').value,sky:$('mSky').value,precipitation:$('mPrecip').value,pressure_trend:$('mPressure').value,water_temp:$('mWaterTemp').value,water_level_trend:$('mLevel').value,fish_activity:$('mActivity').value,water_type:$('mWaterType').value,latitude:loc?.latitude||null,longitude:loc?.longitude||null,position_method:p?.method||null,position_accuracy_m:p?.accuracy||null,waterbody_id:p?.waterbody_id||selectedWater?.id||null,angler_profile:ap?{experience_level:ap.experience_level||null,home_region:ap.home_region||null,preferred_species:ap.preferred_species||[],access_style:ap.access_style||null,gear_status:ap.gear_status||null}:null,live_weather:w?{fetched_at:w.fetched_at,current:w.current,fishing:w.fishing}:null};const inv=await window.FishWizzMissionInventory?.load?.(context)||{combos:window.combos||[],lures:window.lures||[]};context.inventory_summary={saved_setups:inv.combos?.length||0,saved_tackle:inv.lures?.length||0,preferred_combo_id:window.atlasPreferredCombo?.id||null,go_to_combo_id:window.atlasGoToCombo?.id||null};const raw=await api('/rest/v1/rpc/get_mission_plan_v3',{method:'POST',body:JSON.stringify({p_context:context})});const d=window.FishWizzMissionInventory?.fit?.(raw,context,inv)||raw;lastMission={context,recommendation:d};window.lastMission=lastMission;rememberMission(lastMission);// P2 ("provide traceable recommendation evidence" -- staging QA,
+   stat('Building Arsenal-first Mission…');const loc=missionCoords();if(loc&&!window.atlasLiveWeather)await loadWeather(true);
+   if(myGeneration!==missionGeneration)return; // superseded while loading weather
+   const p=loc?.position,w=window.atlasLiveWeather||null,ap=window.atlasAnglerProfile||null;const context={water:$('mWater').value,target:$('mTarget').value,season:$('mSeason').value,clarity:$('mClarity').value,wind:$('mWind').value,light:$('mLight').value,access:$('mAccess').value,cover:$('mCover').value,current:$('mCurrent').value,depth:$('mDepth').value,sky:$('mSky').value,precipitation:$('mPrecip').value,pressure_trend:$('mPressure').value,water_temp:$('mWaterTemp').value,water_level_trend:$('mLevel').value,fish_activity:$('mActivity').value,water_type:$('mWaterType').value,latitude:loc?.latitude||null,longitude:loc?.longitude||null,position_method:p?.method||null,position_accuracy_m:p?.accuracy||null,waterbody_id:p?.waterbody_id||selectedWater?.id||null,angler_profile:ap?{experience_level:ap.experience_level||null,home_region:ap.home_region||null,preferred_species:ap.preferred_species||[],access_style:ap.access_style||null,gear_status:ap.gear_status||null}:null,live_weather:w?{fetched_at:w.fetched_at,current:w.current,fishing:w.fishing}:null};
+   let inv;
+   try{
+    inv=await window.FishWizzMissionInventory?.load?.(context)||{combos:window.combos||[],lures:window.lures||[]};
+   }catch(e){
+    // Gear is an enhancement to the Mission, not a hard dependency of it --
+    // degrade to whatever's already cached (possibly empty) rather than
+    // blocking the whole Mission on a gear-fetch failure.
+    console.error('FishWizz: Mission build failed at stage "inventory" (degrading to cached gear)',e);
+    inv={combos:window.combos||[],lures:window.lures||[]};
+   }
+   if(myGeneration!==missionGeneration)return; // superseded while checking gear
+   context.inventory_summary={saved_setups:inv.combos?.length||0,saved_tackle:inv.lures?.length||0,preferred_combo_id:window.atlasPreferredCombo?.id||null,go_to_combo_id:window.atlasGoToCombo?.id||null};
+   let raw;
+   try{
+    raw=await api('/rest/v1/rpc/get_mission_plan_v3',{method:'POST',body:JSON.stringify({p_context:context})});
+   }catch(e){
+    if(myGeneration===missionGeneration)missionErrorState('rpc',e.message||'FishWizz could not generate this Mission. Try again.');
+    return;
+   }
+   if(myGeneration!==missionGeneration)return; // a newer build's own response should win, not this now-stale one
+   const d=window.FishWizzMissionInventory?.fit?.(raw,context,inv)||raw;lastMission={context,recommendation:d};window.lastMission=lastMission;rememberMission(lastMission);// P2 ("provide traceable recommendation evidence" -- staging QA,
    // 2026-08-27): "Mission gave narrative reasoning and LIVE/OFFICIAL/
    // PERSONAL/ESTIMATED labels but no specific source/agency record/
    // observation time/evidence identified." d.start_zone/adjustment_plan
@@ -68,7 +130,27 @@
    // the collapsed "Why this Mission?" panel; a tester reading only the
    // primary card (the far more common case) never saw it. Surfaced here
    // too, on the card itself.
-   const positionLine=loc?`<p><b>Fishing position:</b> ${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}${p?.method?` · ${esc(p.method.replaceAll('_',' '))}`:''}</p>`:`<p class="muted tiny">No exact fishing position was set. This plan is general guidance for ${esc(context.water)||'the water you entered'} as a ${esc(context.water_type||'water').toLowerCase()}, not tied to a specific matched location.</p>`;const liveLine=w?`<p class="muted tiny">${chip('live','LIVE — current reading')} ${esc(w.current?.temperature_2m)}°F · ${esc(w.current?.wind_speed_10m)} mph wind · ${esc(w.fishing?.pressure_trend)} pressure · refreshed ${new Date(w.fetched_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</p>`:'';const gearLine=d.inventory_used?`<p><span class="pill">Using your Arsenal & Tackle</span></p>`:context.inventory_summary.saved_setups||context.inventory_summary.saved_tackle?`<p class="muted tiny">Saved gear was checked, but no high-confidence owned match fit this Mission; generic setup guidance is shown where needed.</p>`:`<p class="muted tiny">No saved Arsenal/Tackle found, so this Mission uses general setup guidance.</p>`;$('planSummary').innerHTML=`<span class="eyebrow">FishWizz Mission</span><h2>${esc(context.water)} · ${esc(context.target)}</h2>${positionLine}<p><b>Where:</b> ${esc(d.start_zone)}</p><p><b>Adjustment:</b> ${esc(d.adjustment_plan)}</p><p><span class="pill">Confidence ${esc(d.confidence)}%</span><span class="pill">${esc(context.season)}</span><span class="pill">${esc(context.sky)}</span><span class="pill">${esc(context.pressure_trend)} pressure</span></p>${estimatedLine}${gearLine}${liveLine}<p class="muted tiny">${esc(d.data_note)}</p>`;$('planCards').innerHTML=card('Primary',d.primary,true)+card('Backup',d.backup)+card('Finesse',d.finesse);$('feedbackBox').hidden=false;document.dispatchEvent(new CustomEvent('atlas:mission-built',{detail:lastMission}));stat(d.inventory_used?'Mission ready using your saved gear.':'Mission ready.','ok')}catch(e){stat(e.message,'err')}}
+   const positionLine=loc?`<p><b>Fishing position:</b> ${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}${p?.method?` · ${esc(p.method.replaceAll('_',' '))}`:''}</p>`:`<p class="muted tiny">No exact fishing position was set. This plan is general guidance for ${esc(context.water)||'the water you entered'} as a ${esc(context.water_type||'water').toLowerCase()}, not tied to a specific matched location.</p>`;const liveLine=w?`<p class="muted tiny">${chip('live','LIVE — current reading')} ${esc(w.current?.temperature_2m)}°F · ${esc(w.current?.wind_speed_10m)} mph wind · ${esc(w.fishing?.pressure_trend)} pressure · refreshed ${new Date(w.fetched_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</p>`:'';const gearLine=d.inventory_used?`<p><span class="pill">Using your Arsenal & Tackle</span></p>`:context.inventory_summary.saved_setups||context.inventory_summary.saved_tackle?`<p class="muted tiny">Saved gear was checked, but no high-confidence owned match fit this Mission; generic setup guidance is shown where needed.</p>`:`<p class="muted tiny">No saved Arsenal/Tackle found, so this Mission uses general setup guidance.</p>`;$('planSummary').innerHTML=`<span class="eyebrow">FishWizz Mission</span><h2>${esc(context.water)} · ${esc(context.target)}</h2>${positionLine}<p><b>Where:</b> ${esc(d.start_zone)}</p><p><b>Adjustment:</b> ${esc(d.adjustment_plan)}</p><p><span class="pill">Confidence ${esc(d.confidence)}%</span><span class="pill">${esc(context.season)}</span><span class="pill">${esc(context.sky)}</span><span class="pill">${esc(context.pressure_trend)} pressure</span></p>${estimatedLine}${gearLine}${liveLine}<p class="muted tiny">${esc(d.data_note)}</p>`;$('planCards').innerHTML=card('Primary',d.primary,true)+card('Backup',d.backup)+card('Finesse',d.finesse);$('feedbackBox').hidden=false;document.dispatchEvent(new CustomEvent('atlas:mission-built',{detail:lastMission}));stat(d.inventory_used?'Mission ready using your saved gear.':'Mission ready.','ok')
+  }catch(e){
+   // Anything unexpected that reaches here (not one of the two try/catch
+   // blocks above, which already handle their own stage) still gets a
+   // real, visible error state instead of silently leaving the Mission
+   // card in whatever half-built condition it was in.
+   if(myGeneration===missionGeneration)missionErrorState('unexpected',e.message||'Something went wrong building this Mission. Try again.');
+  }finally{
+   // Guaranteed transition out of loading: this runs on every path out of
+   // the try block above -- success, a caught stage error, or an
+   // uncaught exception -- so the button can never be left stuck disabled
+   // and "in flight" can never be left stuck true. Only the CURRENT
+   // (latest) generation's own settle touches this shared state; a stale,
+   // already-superseded build must not clear a newer build's in-flight
+   // flag or re-enable the button out from under it.
+   if(myGeneration===missionGeneration){
+    missionInFlight=false;
+    if(btn){btn.disabled=false;btn.textContent=idleLabel}
+   }
+  }
+ }
  const oldLoad=window.loadWater;if(typeof oldLoad==='function')window.loadWater=async function(w){await oldLoad(w);setTimeout(()=>{if($('mWaterType'))$('mWaterType').value=/river|stream/i.test(w.water_type)?(String(w.water_type).toLowerCase().includes('stream')?'Stream':'River'):/reservoir|flowage/i.test(w.water_type)?'Reservoir':'Lake';if($('mWater')&&w.name)window.FishWizzGuard?.setGuardedValue?.($('mWater'),w.name,'water')},0)};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',inject):inject();
- globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{missionV3:{buildPlan,loadWeather}});
+ globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{missionV3:{buildPlan,loadWeather,missionDebugState}});
 })();
