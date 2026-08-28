@@ -81,7 +81,45 @@
   window.showPage=wrapped;
  }
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('installAtlas')?.removeAttribute('hidden')});window.addEventListener('appinstalled',()=>{installPrompt=null;if($('installAtlas'))$('installAtlas').hidden=true;if(typeof stat==='function')stat('FishWizz installed on this device.','ok')});window.addEventListener('online',updateConnection);window.addEventListener('offline',updateConnection);
- fwOnReady(async()=>{addControls();watchNavigation();wireShowPageLazyLoad();document.documentElement.dataset.atlasStabilityMode='6';document.documentElement.dataset.fishwizzRelease='v1-ui-locked';await loadGroup('mission');if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').then(r=>r.update()).catch(e=>console.error('FishWizz service worker update failed',e))});
+ // release-blocking stabilization (2026-08-28 follow-up): "Provide a
+ // visible update/reload path if an existing tab is running an obsolete
+ // release." sw.js's own skipWaiting()+clients.claim() already make a new
+ // service worker take control of an already-open tab immediately, without
+ // waiting for every tab to close first -- but silently swapping which
+ // version is answering fetches out from under a page that already has an
+ // OLDER release's HTML/JS parsed and running in memory is exactly the
+ // "old HTML loading new scripts" version-skew risk this requirement names.
+ // controllerchange fires in two genuinely different situations: the very
+ // first time a service worker EVER takes control of a previously-
+ // uncontrolled page (nothing was running before it, nothing to reload away
+ // from), and a live switch from one already-active worker to a newer one
+ // while this exact tab is open and running. hadController -- captured the
+ // moment this listener is wired, before any switch could yet have
+ // happened -- is what tells those two cases apart; only the second one
+ // ever shows the banner.
+ function watchServiceWorkerUpdates(){
+  if(!('serviceWorker'in navigator))return;
+  const hadController=!!navigator.serviceWorker.controller;
+  let shown=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+   if(!hadController||shown)return;
+   shown=true;
+   showUpdateBanner();
+  });
+ }
+ function showUpdateBanner(){
+  if($('fwUpdateBanner'))return;
+  if(!$('fwUpdateBannerStyles')){
+   const s=document.createElement('style');s.id='fwUpdateBannerStyles';
+   s.textContent='.fw-update-banner{position:fixed;left:12px;right:12px;bottom:12px;z-index:5000;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:14px;background:#10251e;border:1px solid rgba(225,191,99,.4);box-shadow:0 12px 34px rgba(0,0,0,.4);color:#f3f4ef}.fw-update-banner button{min-height:44px}@media(max-width:760px){.fw-update-banner{flex-direction:column;align-items:stretch;bottom:calc(12px + env(safe-area-inset-bottom))}}';
+   document.head.appendChild(s);
+  }
+  const b=document.createElement('div');b.id='fwUpdateBanner';b.className='fw-update-banner';
+  b.innerHTML='<span>A new version of FishWizz is ready.</span><button type="button" id="fwUpdateReload" class="btn gold">Reload</button>';
+  document.body.appendChild(b);
+  $('fwUpdateReload').onclick=()=>location.reload();
+ }
+ fwOnReady(async()=>{addControls();watchNavigation();wireShowPageLazyLoad();watchServiceWorkerUpdates();document.documentElement.dataset.atlasStabilityMode='6';document.documentElement.dataset.fishwizzRelease='v1-ui-locked';await loadGroup('mission');if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').then(r=>r.update()).catch(e=>console.error('FishWizz service worker update failed',e))});
  function fwOnReady(fn){document.readyState==='loading'?document.addEventListener('DOMContentLoaded',fn,{once:true}):fn()}
- globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{pwa:{groups,loadGroup,pageGroup,wireShowPageLazyLoad,loaded}});
+ globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{pwa:{groups,loadGroup,pageGroup,wireShowPageLazyLoad,loaded,watchServiceWorkerUpdates,showUpdateBanner}});
 })();

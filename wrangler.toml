@@ -1,0 +1,45 @@
+# FishWizz — the one authoritative deployment configuration.
+#
+# Root cause of "different tabs load different FishWizz versions", now
+# correctly diagnosed (previous session turn had this wrong -- corrected
+# here): this project was never deploying via `wrangler`, `wrangler.toml`,
+# or any file-based config at all. .deploy/direct-cloudflare-assets-
+# upload.mjs hand-rolled the raw Cloudflare Workers Assets Upload API
+# directly, uploading every dist/ file -- including _headers -- as an inert
+# static asset. It also shipped a Worker script (main_module +
+# fetch(request,env){return env.ASSETS.fetch(request)}) with no
+# run_worker_first setting, which defaults to false: Cloudflare's Assets
+# binding serves matching static paths DIRECTLY, without ever invoking that
+# Worker's fetch handler. Confirmed live: a Cache-Control header set
+# INSIDE that Worker's own fetch() had zero observable effect on production
+# responses, because the Worker was never being called for those requests
+# at all -- not a caching-propagation delay, the code path itself was dead
+# for ordinary asset requests. Separately, _headers is a real, currently-
+# documented Workers Static Assets feature -- but only when deployed
+# through `wrangler deploy` (or the dashboard), which parses it into
+# Cloudflare's own asset-serving configuration at deploy time. The raw
+# Upload API this repo's old script called never did that parsing; it just
+# uploaded the file as literal, inert content, reachable at /_headers like
+# any other asset -- confirmed live by fetching it and getting back the
+# template's own raw text.
+#
+# This file replaces BOTH of the removed .deploy/*.mjs scripts as the one
+# real deployment pipeline: `wrangler deploy`. No Worker script (`main`) is
+# configured at all -- every request is served directly from dist/ as
+# static assets, with _headers governing caching/custom headers and
+# not_found_handling providing SPA fallback, both native to this mode and
+# requiring no custom Worker code whatsoever. That is a deliberate,
+# explicit answer to "does Worker code run before static assets": it does
+# not -- there is no Worker script in this deployment at all.
+name = "fishwizz2-0"
+account_id = "ff0315807c7e6e90d1dde91554555827"
+compatibility_date = "2026-08-20"
+
+[assets]
+directory = "./dist"
+# SPA fallback: a path with no matching file (e.g. a deep link into the
+# client-side router) serves index.html instead of a 404.
+not_found_handling = "single-page-application"
+# "/foo" and "/foo/" both resolve to the same asset without a redirect
+# round trip.
+html_handling = "auto-trailing-slash"

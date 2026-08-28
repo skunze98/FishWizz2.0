@@ -1,7 +1,10 @@
-# FishWizz — Cloudflare Pages headers
+# FishWizz — Cloudflare Workers Static Assets headers.
 #
 # scripts/postbuild.mjs renders this to dist/_headers, substituting
-# %SUPABASE_ORIGIN%. Replaces vercel.json, which Cloudflare Pages ignores.
+# %SUPABASE_ORIGIN% and %FISHWIZZ_BUILD%. Deployed via `wrangler deploy`
+# (wrangler.toml's [assets] block) -- the one authoritative pipeline; see
+# that file's own header for why _headers only takes effect through that
+# path and not the raw Assets Upload API this repo used to call directly.
 #
 # The CSP ships as Report-Only first. Flip it to Content-Security-Policy at
 # Stage 6 after reviewing a deploy's worth of reports -- enforcing an untested
@@ -13,6 +16,7 @@
   Permissions-Policy: geolocation=(self), camera=(self)
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://services.arcgisonline.com; connect-src 'self' %SUPABASE_ORIGIN% https://o4511973160845312.ingest.us.sentry.io; worker-src 'self'; manifest-src 'self'
+  X-FishWizz-Release: %FISHWIZZ_BUILD%
 
 # Notes on the policy above:
 #
@@ -45,23 +49,46 @@
 #
 # The remaining external origins are img-src only (map tiles), which cannot
 # execute code.
+#
+# X-FishWizz-Release carries the same non-sensitive build identifier as the
+# HTML shell's <meta name="fishwizz-build"> tag, sw.js's own CACHE name, and
+# window.__FISHWIZZ_BUILD__ -- all four are asserted to match by
+# scripts/verify-release-match.mjs. Not a secret: just a content hash of the
+# shipped files, useful for confirming which release a given response
+# actually came from.
 
-/sw.js
-  Cache-Control: public, max-age=0, must-revalidate
+# release-blocking stabilization (2026-08-28 follow-up): the exact cache
+# semantics requested -- "no-cache, must-revalidate", not "max-age=0,
+# must-revalidate". Both force a real revalidation before reuse, but
+# no-cache is the unambiguous, standard way to say "never serve this from
+# cache without checking with origin first" and is what every cache
+# implementation (browser and CDN alike) is built to recognize first-class.
+
+# P1 follow-up, caught live in production: Cloudflare's Workers Static
+# Assets _headers engine does NOT let a more specific rule override a
+# broader one -- it concatenates BOTH matching rules' Cache-Control values
+# into the same response. A generic /*.js glob here used to also match
+# /assets/*.js (Vite's own hashed bundle), producing a genuinely
+# self-contradicting live header: "no-cache, must-revalidate, public,
+# max-age=31536000, immutable" on the one file that most needs to be
+# cached forever. scripts/postbuild.mjs now appends one exact, non-
+# overlapping rule per real non-hashed file below this line (never a glob
+# that could cross into /assets/) -- see that script's own comment for why.
+
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+/
+  Cache-Control: no-cache, must-revalidate
 
 /manifest.webmanifest
   Content-Type: application/manifest+json
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-cache, must-revalidate
 
-# Hashed bundler output is content-addressed and safe to pin forever.
+# Hashed bundler output is content-addressed and safe to pin forever. The
+# ONLY rule that ever matches anything under /assets/ -- no other pattern
+# in this file is broad enough to also reach in here, by construction.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# The legacy modules in public/ are served at stable, unhashed URLs, so they
-# must revalidate or a stale one pins itself in the browser cache. Versioning
-# is handled by the service worker's per-build cache name instead.
-/*.js
-  Cache-Control: public, max-age=0, must-revalidate
-
-/*.css
-  Cache-Control: public, max-age=0, must-revalidate
+%FISHWIZZ_NONHASHED_RULES%

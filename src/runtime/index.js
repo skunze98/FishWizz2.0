@@ -23,6 +23,17 @@ import { createAuthState } from './auth-state.js';
 // anything else here has a chance to throw. No-ops with no VITE_SENTRY_DSN.
 initSentry();
 
+// Release identifier for browser diagnostics (release-blocking
+// stabilization, 2026-08-28 follow-up: "Add a non-sensitive release
+// identifier to: the HTML shell, the service worker, a response header,
+// and the browser diagnostics. These identifiers must match."). Read from
+// the <meta> tag scripts/postbuild.mjs injects into index.html -- not a
+// second, independently-computed value -- so this can never disagree with
+// what the meta tag, sw.js's own CACHE name, and the X-FishWizz-Release
+// response header all already say. `undefined` locally (no build step has
+// run) or on a build predating this change; never fabricated.
+window.__FISHWIZZ_BUILD__ = document.querySelector('meta[name="fishwizz-build"]')?.content;
+
 // Leaflet is bundled rather than loaded from unpkg. That removes the last
 // third-party script origin -- so script-src can drop to 'self' -- and with it
 // the risk that a compromised or unavailable CDN takes the map down. map.js and

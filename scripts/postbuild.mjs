@@ -38,6 +38,12 @@ const read = u => readFileSync(join(DIST, u.slice(1)), 'utf8');
 // --- 1. service worker precache list ---------------------------------------
 // Derived from what is actually in dist/, never from a hand-kept list.
 
+// Release identifier, hoisted to module scope: used below by both the sw.js
+// cache name AND _headers' X-FishWizz-Release header AND the HTML shell's
+// own <meta> tag / window.__FISHWIZZ_BUILD__ -- one real value, computed
+// once, not four independent copies that could drift from each other.
+let BUILD = null;
+
 const swPath = join(DIST, 'sw.js');
 if (!existsSync(swPath)) {
   errors.push('sw.js is missing from dist/');
@@ -84,7 +90,7 @@ if (!existsSync(swPath)) {
   const versioned = [...present]
     .filter(u => u !== '/sw.js' && u !== '/_headers' && !u.endsWith('.map'))
     .sort();
-  const BUILD = createHash('sha256')
+  BUILD = createHash('sha256')
     .update(versioned.map(u => {
       const contentHash = createHash('sha256')
         .update(readFileSync(join(DIST, u.slice(1))))
@@ -103,6 +109,41 @@ if (!existsSync(swPath)) {
   if (out === swSrc) errors.push('sw.js: could not substitute SHELL/CACHE -- the expected shape changed');
   writeFileSync(swPath, out);
   notes.push(`sw.js: build ${BUILD}, ${SHELL.length} shell entries`);
+}
+
+// --- 1b. release identifier in the HTML shell + browser diagnostics --------
+//
+// release-blocking stabilization (2026-08-28 follow-up): "Add a non-
+// sensitive release identifier to: the HTML shell, the service worker, a
+// response header, and the browser diagnostics. These identifiers must
+// match." BUILD (computed above, from a real content hash of every shipped
+// file) is that one identifier -- sw.js's own CACHE name already carries it;
+// this step adds it to index.html (both a <meta> tag any tool/human can
+// read without executing JS, and window.__FISHWIZZ_BUILD__ for runtime
+// diagnostics/console use); _headers' own X-FishWizz-Release substitution
+// happens in step 2 below. scripts/verify-release-match.mjs asserts all
+// four actually agree after every build.
+
+const indexPath = join(DIST, 'index.html');
+if (BUILD && existsSync(indexPath)) {
+  const htmlSrc = readFileSync(indexPath, 'utf8');
+  if (!/<head[^>]*>/.test(htmlSrc)) {
+    errors.push('index.html: no <head> tag found -- cannot inject the release identifier');
+  } else {
+    // A <meta> tag only -- deliberately not an inline <script> setting
+    // window.__FISHWIZZ_BUILD__ directly, which would violate this app's
+    // own script-src 'self' CSP the instant it leaves Report-Only mode.
+    // src/runtime/index.js (already loaded same-origin, satisfying CSP as-is)
+    // reads this tag itself and sets window.__FISHWIZZ_BUILD__ from it.
+    const injected = htmlSrc.replace(
+      /<head([^>]*)>/,
+      `<head$1><meta name="fishwizz-build" content="${BUILD}">`,
+    );
+    if (injected === htmlSrc) errors.push('index.html: could not inject the release identifier');
+    else { writeFileSync(indexPath, injected); notes.push(`index.html: release identifier ${BUILD} injected`); }
+  }
+} else if (!BUILD) {
+  errors.push('index.html: no BUILD identifier available to inject (sw.js precache step above must have failed)');
 }
 
 // --- 2. _headers ------------------------------------------------------------
@@ -146,9 +187,39 @@ if (existsSync(tpl)) {
       errors.push('the built bundle contains no Supabase origin -- VITE_SUPABASE_URL was empty at build time');
     }
 
-    writeFileSync(join(DIST, '_headers'),
-      readFileSync(tpl, 'utf8').replaceAll('%SUPABASE_ORIGIN%', origin));
-    notes.push(`_headers: written, API origin ${origin}`);
+    // P1 follow-up, caught live in production: a broad /*.js glob also
+    // matched /assets/*.js, and Cloudflare's _headers engine concatenates
+    // every matching rule's Cache-Control rather than letting the more
+    // specific one win -- the live, deployed response for the hashed
+    // bundle came back as the self-contradicting "no-cache, must-
+    // revalidate, public, max-age=31536000, immutable". One exact rule per
+    // real non-hashed .js/.css file (never a glob, so it can never
+    // accidentally reach into /assets/) is the only version of this that
+    // cannot repeat that bug -- generated from the real file list, so it
+    // can never drift from what dist/ actually contains either.
+    const nonHashedRules = [...present]
+      .filter(u => /\.(?:js|css)$/.test(u) && !u.startsWith('/assets/'))
+      .sort()
+      .map(u => `${u}\n  Cache-Control: no-cache, must-revalidate`)
+      .join('\n\n');
+
+    const renderedHeaders = readFileSync(tpl, 'utf8')
+      .replaceAll('%SUPABASE_ORIGIN%', origin)
+      .replaceAll('%FISHWIZZ_BUILD%', BUILD || 'unknown')
+      .replaceAll('%FISHWIZZ_NONHASHED_RULES%', nonHashedRules);
+
+    // Catches the exact class of bug just found live in production: a
+    // template placeholder token that also appears inside an explanatory
+    // comment gets replaceAll'd there too, duplicating that path's rule
+    // block -- which _headers concatenates rather than dedupes (see this
+    // section's own header comment). Every path line (one per blank-line-
+    // separated block) must appear exactly once in the rendered output.
+    const pathLines = renderedHeaders.split('\n').filter(l => l.startsWith('/'));
+    const duplicatePaths = pathLines.filter((p, i) => pathLines.indexOf(p) !== i);
+    if (duplicatePaths.length) errors.push(`_headers: duplicate rule block(s) for ${[...new Set(duplicatePaths)].join(', ')} -- likely a placeholder token also matched inside a comment`);
+
+    writeFileSync(join(DIST, '_headers'), renderedHeaders);
+    notes.push(`_headers: written, API origin ${origin}, ${[...present].filter(u => /\.(?:js|css)$/.test(u) && !u.startsWith('/assets/')).length} exact non-hashed cache rules`);
   }
   // publicDir copies the template into dist/ as a side effect. It is build
   // input, not something to serve.

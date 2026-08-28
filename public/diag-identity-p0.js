@@ -27,8 +27,15 @@
 
  const LOG_LIMIT=200;
  const buf=[];
+ // release-blocking stabilization (2026-08-28 follow-up): "Add a non-
+ // sensitive release identifier to... the browser diagnostics." Every
+ // diagnostic line this file emits now carries the same build identifier
+ // as the HTML shell's <meta> tag, sw.js's CACHE name, and the
+ // X-FishWizz-Release response header -- useful for confirming, from
+ // nothing but a console log a QA session already produces, exactly which
+ // release actually served that page.
  function log(kind,detail){
-  const entry={t:new Date().toISOString(),kind,account:fp(),...detail};
+  const entry={t:new Date().toISOString(),kind,build:window.__FISHWIZZ_BUILD__,account:fp(),...detail};
   buf.push(entry);
   if(buf.length>LOG_LIMIT)buf.shift();
   const label=`[FW-DIAG-P0] ${kind}`;
