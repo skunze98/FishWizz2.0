@@ -14,6 +14,16 @@
  ];
  window.ATLAS_MN_WI_FRESHWATER_SPECIES=[...new Set(species)].sort((a,b)=>a.localeCompare(b));
  const common=['Largemouth Bass','Smallmouth Bass','Walleye','Northern Pike','Muskellunge','Black Crappie','White Crappie','Bluegill','Pumpkinseed','Yellow Perch','Channel Catfish','Flathead Catfish','Rock Bass','White Bass','Freshwater Drum','Common Carp','Lake Sturgeon','Sauger','Burbot','Bowfin','Brook Trout','Brown Trout','Rainbow Trout (Steelhead)','Lake Trout'];
+ // P2 (release-blocking, 2026-08-28, NO-GO QA -- "a fresh tab briefly
+ // shows... a reduced species list... before rewriting to current UI ~5s
+ // later"): index.html's static #mTarget now already contains this exact
+ // optgroup markup baked in (with data-species-catalog="1" already set),
+ // so a fresh load has the full catalog from first paint and this guard
+ // makes optionize() a genuine no-op there -- it only ever rebuilds
+ // #mTarget for a page whose HTML predates that fix (an old cached shell,
+ // or a future revert). If the `common`/`species` lists below ever change,
+ // index.html's own #mTarget markup must be regenerated to match (see that
+ // file's own note next to #mTarget), or this exact flash comes back.
  function optionize(sel){if(!sel||sel.dataset.speciesCatalog)return;const current=sel.value,existing=[...sel.options].map(o=>o.textContent.trim());sel.innerHTML='';const groups=[['Popular targets',common],['More MN + WI freshwater species',window.ATLAS_MN_WI_FRESHWATER_SPECIES.filter(x=>!common.includes(x))]];for(const [label,items] of groups){const g=document.createElement('optgroup');g.label=label;items.forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;g.appendChild(o)});sel.appendChild(g)};if(current&&[...sel.options].some(o=>o.value===current))sel.value=current;sel.dataset.speciesCatalog='1'}
  function catchList(){const input=document.getElementById('cSpecies');if(!input||document.getElementById('atlasSpeciesList'))return;const dl=document.createElement('datalist');dl.id='atlasSpeciesList';window.ATLAS_MN_WI_FRESHWATER_SPECIES.forEach(x=>{const o=document.createElement('option');o.value=x;dl.appendChild(o)});document.body.appendChild(dl);input.setAttribute('list','atlasSpeciesList');input.placeholder='Start typing a species'}
  function boot(){optionize(document.getElementById('mTarget'));catchList();document.dispatchEvent(new CustomEvent('atlas:species-ready',{detail:{count:window.ATLAS_MN_WI_FRESHWATER_SPECIES.length}}))}

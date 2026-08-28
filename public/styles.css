@@ -27,13 +27,48 @@ header{position:sticky;top:0;z-index:30;background:rgba(8,20,15,.9);border-botto
 .nav{display:flex;gap:6px;overflow:auto;max-width:var(--max);margin:9px auto 0;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}.nav button{white-space:nowrap;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:999px;padding:8px 13px;font-weight:800}.nav button:hover{color:var(--text);background:rgba(216,207,184,.04)}.nav .active{background:var(--canvas);color:#1a241e;border-color:var(--canvas);box-shadow:0 5px 18px rgba(0,0,0,.16)}
 main{max-width:var(--max);margin:auto;padding:16px 14px 50px}.status{padding:8px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:rgba(216,207,184,.025);margin-bottom:12px;font-size:.86rem;width:max-content;max-width:100%}.status.ok{color:var(--success)}.status.err{color:#efb4ae;background:rgba(142,79,73,.12)}
 .hero{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(16,35,28,.98),rgba(29,58,46,.96));border:1px solid rgba(216,207,184,.09);border-radius:var(--r-xl);padding:30px 26px;margin-bottom:14px;box-shadow:var(--shadow)}.hero:before{content:"";position:absolute;inset:0;opacity:.13;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='180' viewBox='0 0 260 180'%3E%3Cg fill='none' stroke='%23d8cfb8' stroke-width='1'%3E%3Cpath d='M-20 38c46-25 87-20 127 6s82 27 129 3 79-18 111 1'/%3E%3Cpath d='M-28 78c50-20 94-15 133 11s81 28 126 8 77-14 106 2'/%3E%3Cpath d='M-22 124c43-24 85-20 126 7s83 29 130 5 78-17 111 1'/%3E%3C/g%3E%3C/svg%3E");background-size:260px 180px}.hero:after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;right:-100px;top:-120px;background:radial-gradient(circle,rgba(184,139,74,.16),transparent 68%)}.hero>*{position:relative;z-index:1}.hero h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(31px,5vw,48px);line-height:1.03;letter-spacing:-.025em;margin:5px 0 8px;font-weight:700}.hero p{margin:0;color:#d7ded7;max-width:760px;font-size:1rem}.eyebrow{color:var(--brass-2);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.15em}
-.grid{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(0,1.44fr);gap:14px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}.card{background:linear-gradient(180deg,rgba(15,31,25,.97),rgba(12,26,21,.97));border:1px solid rgba(216,207,184,.08);border-radius:var(--r-lg);padding:17px;box-shadow:var(--shadow-soft)}.card h2,.card h3{margin-top:0;letter-spacing:-.015em}.card h2{font-size:1.23rem}.card h3{font-size:1.05rem}
+.grid{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(0,1.44fr);gap:14px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}.card{background:linear-gradient(180deg,rgba(15,31,25,.97),rgba(12,26,21,.97));border:1px solid rgba(216,207,184,.08);border-radius:var(--r-lg);padding:17px;box-shadow:var(--shadow-soft);min-width:0}.card h2,.card h3{margin-top:0;letter-spacing:-.015em}.card h2{font-size:1.23rem}.card h3{font-size:1.05rem}
 label{display:block;font-weight:800;margin:10px 0;color:#eceee7}input,select,textarea{width:100%;background:#0a1a14;color:var(--text);border:1px solid rgba(155,182,188,.28);border-radius:var(--r-sm);padding:11px 12px;min-height:44px;margin-top:5px;transition:.15s ease}input::placeholder,textarea::placeholder{color:#73847b}input:hover,select:hover,textarea:hover{border-color:rgba(155,182,188,.44)}input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brass-2);box-shadow:0 0 0 3px rgba(184,139,74,.12);background:#0c2018}textarea{min-height:90px;resize:vertical}option{background:#0a1a14;color:var(--text)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid transparent;border-radius:11px;padding:10px 14px;min-height:42px;font-weight:900;background:var(--spruce);color:#fff;transition:transform .12s ease,background .12s ease,border-color .12s ease,box-shadow .12s ease}.btn:hover{background:var(--spruce-2);transform:translateY(-1px)}.btn:active{transform:none}.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(184,139,74,.2)}.btn.gold{background:var(--brass);color:#1b211c;box-shadow:0 5px 16px rgba(184,139,74,.15)}.btn.gold:hover{background:var(--brass-2)}.btn.ghost{background:rgba(216,207,184,.045);border-color:rgba(216,207,184,.13);color:var(--text)}.btn.ghost:hover{background:rgba(216,207,184,.08)}.btn.bad{background:rgba(142,79,73,.65);color:#fff}.btn.bad:hover{background:var(--danger)}
 .result{display:block;width:100%;text-align:left;background:#0b1c16;color:var(--text);border:1px solid rgba(216,207,184,.075);border-radius:12px;padding:12px;margin:7px 0}.result:hover{border-color:rgba(155,182,188,.3);background:#0d241c}.pill{display:inline-flex;align-items:center;background:rgba(126,158,167,.12);border:1px solid rgba(155,182,188,.13);border-radius:999px;padding:5px 9px;margin:2px;font-size:12px;line-height:1.2}.muted{color:var(--muted)}.tiny{font-size:12px}.warning{padding:11px 12px;border-left:3px solid var(--brass);background:rgba(184,139,74,.09);border-radius:10px;margin:10px 0;color:#eee0c5}
 .tabs{display:flex;gap:6px;overflow:auto;margin:11px 0;padding-bottom:2px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{border:1px solid rgba(216,207,184,.11);background:#0b1d17;color:var(--muted);border-radius:999px;padding:8px 11px;font-weight:800}.tabs button.active{background:var(--canvas);color:#19231d;border-color:var(--canvas)}.panel{display:none}.panel.active{display:block}.plan{border-top:3px solid var(--spruce-2)}.plan.primary{border-color:var(--brass)}.feedback button{flex:1;min-width:115px}
 .suggestions{border:1px solid rgba(216,207,184,.12);border-radius:12px;background:#0b1d17;overflow:hidden;margin-top:-3px;margin-bottom:10px;box-shadow:var(--shadow)}.suggestion{display:flex;width:100%;justify-content:space-between;gap:12px;text-align:left;border:0;border-bottom:1px solid rgba(216,207,184,.07);background:#0b1d17;color:var(--text);padding:11px}.suggestion:last-child{border-bottom:0}.suggestion:hover,.suggestion:focus{background:#143126;outline:none}.suggestion span{color:var(--muted);font-size:12px;white-space:nowrap}details{border-radius:12px}summary{cursor:pointer;color:#f0f1ea;font-weight:800}::selection{background:rgba(184,139,74,.32);color:#fff}
-@media(max-width:800px){.grid{grid-template-columns:1fr}}
+/* P1 (release-blocking, 2026-08-28, NO-GO QA -- measured at 320x700:
+   clientWidth 305px vs scrollWidth 365px; .card elements 353px wide;
+   chips extending to 719px): a bare `1fr` track's IMPLICIT minimum is
+   `auto` (its content's min-content size), not 0 -- unlike the desktop
+   two-column layout above, which already correctly uses `minmax(0,1.44fr)`
+   for exactly this reason. Any descendant with an intrinsically wide,
+   non-shrinking box (the source-legend chip row a few lines below,
+   flex-wrap:nowrap by design so it can scroll horizontally on purpose)
+   forced this single mobile column -- and therefore every other child
+   inside it, including #planCards' own card grid -- wider than the real
+   viewport, which is what the measured .card/scrollWidth numbers actually
+   were: not real content overflow, but an unconstrained ancestor auto-
+   sizing to fit content overflow-x:auto was supposed to contain internally.
+   minmax(0,1fr) is the standard grid fix (restores the same protection
+   the desktop columns already had), and fixes every such descendant at
+   once rather than patching each one that happens to be wide. */
+/* P1 (release-blocking, 2026-08-28, NO-GO QA -- measured at 320x700:
+   clientWidth 305px vs scrollWidth 365px; .card elements 353px wide;
+   chips extending to 719px -- reproduced live and confirmed as the cause:
+   reverting this one rule alone reproduced scrollWidth 369 vs clientWidth
+   320, .card at 355.97px, legend content at 710px): a bare `1fr` track's
+   IMPLICIT minimum is `auto` (its content's min-content size), not 0 --
+   unlike the desktop two-column layout above, which already correctly
+   uses `minmax(0,1.44fr)` for exactly this reason. Any descendant with an
+   intrinsically wide, non-shrinking box (the source-legend chip row a few
+   lines below, flex-wrap:nowrap by design so it can scroll horizontally
+   on purpose) forced this single mobile column -- and therefore every
+   other child inside it, including #planCards' own card grid -- wider
+   than the real viewport, which is what the measured .card/scrollWidth
+   numbers actually were: not real content overflow, but an unconstrained
+   ancestor auto-sizing to fit content overflow-x:auto was supposed to
+   contain internally. minmax(0,1fr) is the standard grid fix (restores
+   the same protection the desktop columns already had), and fixes every
+   such descendant at once rather than patching each one that happens to
+   be wide. */
+@media(max-width:800px){.grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){body{font-size:15px}header{padding:8px 10px}.top{gap:8px}.nav{margin-top:7px}.nav button{padding:8px 12px}.hero{padding:22px 18px;border-radius:20px}.hero h1{font-size:clamp(30px,9vw,40px)}main{padding:10px 9px calc(36px + env(safe-area-inset-bottom))}.card{padding:14px;border-radius:15px}.row{display:grid;grid-template-columns:1fr}.row>*{width:100%}.top .row{display:flex}.top .row>*{width:auto}.feedback button{min-width:0}.status{margin-bottom:9px}.suggestion{flex-direction:column;gap:3px}.suggestion span{white-space:normal}}
 @media(max-width:430px){.account-link{padding:7px 10px}.nav{gap:4px}.nav button{font-size:.92rem;padding-left:11px;padding-right:11px}.hero{padding:19px 15px}.card{padding:13px}.cards{gap:9px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

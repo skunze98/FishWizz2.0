@@ -36,6 +36,16 @@
  // always-keyboard-reachable primary nav item, exactly as index.html
  // already correctly labels it. gearBridge()'s in-page "Tackle Box"
  // shortcut is unaffected and still works as a supplementary path.
+ // P2 (release-blocking, 2026-08-28, NO-GO QA -- "a fresh tab briefly
+ // shows 'Arsenal'... before rewriting to current UI ~5s later"):
+ // index.html's static nav button now already reads "Gear" (matching what
+ // this call sets it to) -- setPageLabel() below is idempotent (always
+ // re-applies the same text/aria-label unconditionally, harmless either
+ // way), so this stays correct as pure defense-in-depth for an old cached
+ // shell or a future revert, but a fresh load no longer depends on this
+ // running at all to show the current label. If this label ever changes,
+ // index.html's own nav markup must be updated to match, or this exact
+ // flash comes back.
  function topLabels(){setPageLabel('mission','Mission');setPageLabel('waters','Map');setPageLabel('arsenal','Gear')}
  function gearBridge(){const arsenalHero=document.querySelector('#arsenal .hero'),tackleHero=document.querySelector('#tackle .hero');if(arsenalHero&&!$('fwGearBridge')){const row=document.createElement('div');row.id='fwGearBridge';row.className='row fw-gear-bridge';row.innerHTML='<button id="fwJumpAddGear" class="btn gold" type="button">+ Add Gear</button><button id="fwOpenTackle" class="btn" type="button">Tackle Box</button>';arsenalHero.insertAdjacentElement('afterend',row);$('fwJumpAddGear').onclick=()=>{const jump=()=>{const add=$('inventoryAdd');if(add)add.scrollIntoView({behavior:'smooth',block:'start'});else setTimeout(jump,100)};jump()};$('fwOpenTackle').onclick=()=>go('tackle')}if(tackleHero&&!$('fwBackToGear')){const back=document.createElement('button');back.id='fwBackToGear';back.className='btn ghost fw-back-to-gear';back.type='button';
    // P3-14 ("hide decorative chevrons/symbols from assistive technology"):

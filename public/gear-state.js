@@ -12,10 +12,26 @@
  // authoritative fetch + cache all three now delegate to. See
  // arsenal-safe.js, mission-inventory-fit.js, and today.js for the rewire.
  const TTL=30000;
- let cache={uid:null,at:0,combos:[],rods:[],reels:[],lures:[],loaded:false};
+ // P1 (release-blocking, 2026-08-28, NO-GO QA -- "Profile showed 5 Tackle,
+ // Gear showed 2/2/2, Tackle showed 0 items/No tackle saved yet"):
+ // `loaded` used to be one flag covering all four collections, but Gear's
+ // own report() (see below) only ever supplies combos/rods/reels -- it has
+ // never fetched lures at all, by design (arsenal-safe.js's own comment:
+ // "Back to its own direct fetch...with the result then reported to
+ // gear-state.js via report() as a side effect"). If Gear is the first
+ // inventory-related page visited this session, report() used to mark the
+ // WHOLE cache loaded:true while cache.lures was still its untouched
+ // initial []. isHydratedFor() (Tackle's only gate) and ensure()'s own
+ // freshness check both trusted that flag, so Tackle -- or anything else
+ // calling ensure() for real, current gear -- could short-circuit on a
+ // cache that had never actually fetched lures, permanently (for the rest
+ // of that cache's TTL) showing a false "No tackle saved yet" no matter how
+ // much tackle the account actually has. luresLoaded tracks the lures
+ // collection specifically, set only by a real fetch that included them.
+ let cache={uid:null,at:0,combos:[],rods:[],reels:[],lures:[],loaded:false,luresLoaded:false};
  let inflight=null;
 
- function emptyState(uid,loaded){return{uid,at:0,combos:[],rods:[],reels:[],lures:[],loaded}}
+ function emptyState(uid,loaded){return{uid,at:0,combos:[],rods:[],reels:[],lures:[],loaded,luresLoaded:false}}
 
  // P0 ("cancel or ignore stale asynchronous responses using account id plus
  // generation/request tokens"): every request started here is tagged with
@@ -43,7 +59,7 @@
    stale.stale=true;
    throw stale;
   }
-  cache={uid,at:Date.now(),combos:combos||[],rods:rods||[],reels:reels||[],lures:lures||[],loaded:true};
+  cache={uid,at:Date.now(),combos:combos||[],rods:rods||[],reels:reels||[],lures:lures||[],loaded:true,luresLoaded:true};
   // Kept for every reader that peeks at these globals directly (mentor-pro.js's
   // bestOwned(), gear-coach-lite.js, etc) instead of calling ensure() itself --
   // this is the ONE place that ever writes them now, not a second copy of them.
@@ -99,7 +115,13 @@
  // now only invalidates when the account genuinely changed.
  function report(uid,{combos,rods,reels,lures}){
   if(!uid)return;
-  cache={uid,at:Date.now(),combos:combos||[],rods:rods||[],reels:reels||[],lures:lures??cache.lures,loaded:true};
+  // luresLoaded is only ever set true here if THIS call actually supplied
+  // lures; otherwise it carries forward the prior value for the SAME
+  // account (a genuine earlier full fetch this session still counts), or
+  // false for a different/fresh account (never inherit another account's
+  // "lures are loaded" state).
+  const priorLuresLoaded=cache.uid===uid?cache.luresLoaded:false;
+  cache={uid,at:Date.now(),combos:combos||[],rods:rods||[],reels:reels||[],lures:lures??cache.lures,loaded:true,luresLoaded:lures!==undefined?true:priorLuresLoaded};
   window.combos=cache.combos.map(c=>({...c,rods:cache.rods.find(r=>r.id===c.rod_id)||null,reels:cache.reels.find(r=>r.id===c.reel_id)||null}));
   if(lures!==undefined)window.lures=cache.lures;
   try{const saved=localStorage.getItem(`atlas:goToCombo:${uid}`);window.atlasGoToCombo=saved?window.combos.find(c=>String(c.id)===String(saved))||null:null}catch(e){console.error('FishWizz: could not restore go-to combo',e)}
@@ -109,7 +131,11 @@
  async function ensure({force=false}={}){
   const uid=session?.user?.id;
   if(!uid){cache=emptyState(null,false);window.combos=[];window.lures=[];return cache}
-  if(!force&&cache.uid===uid&&cache.loaded&&Date.now()-cache.at<TTL)return cache;
+  // Require luresLoaded too, not just loaded -- a cache Gear's own
+  // report() marked loaded:true without ever fetching lures must not be
+  // treated as fresh enough for a caller that needs real lures data (see
+  // this module's own top-of-file note).
+  if(!force&&cache.uid===uid&&cache.loaded&&cache.luresLoaded&&Date.now()-cache.at<TTL)return cache;
   if(inflight?.uid===uid&&!force)return inflight.promise;
   const promise=fetchAll(uid).catch(e=>{
    if(e?.stale){
@@ -125,7 +151,31 @@
    // is a real, checkable field, not just an inferred loaded:false. Callers
    // that only render an empty state once loaded===true AND error is falsy
    // correctly show a retryable error instead of a false "no gear" message.
-   return{...(cache.uid===uid&&cache.loaded?cache:emptyState(uid,false)),error:e?.message||String(e)};
+   //
+   // P0 (release-blocking, 2026-08-28, NO-GO QA): this used to only be the
+   // RESOLVED VALUE of the ensure() promise -- module-scope `cache` itself
+   // was never reassigned here, so get() (what every peek-only reader like
+   // mentor-pro.js's bestOwned() actually calls, never ensure() itself)
+   // kept returning the stale pre-fetch loaded:false/error:undefined state
+   // forever after a real failure. A reader with no way to distinguish
+   // "still loading" from "permanently failed" that also re-renders on
+   // every MutationObserver tick would then loop forever, remove+recreate
+   // the same node, main thread never goes idle -- see mentor-pro.js's own
+   // fix for the other half of this. cache must be reassigned here too so a
+   // failure is actually observable via get(), not just via await ensure().
+   const failed={...(cache.uid===uid&&cache.loaded?cache:emptyState(uid,false)),error:e?.message||String(e)};
+   cache=failed;
+   // Readers that only re-check gear state when told to (mentor-pro.js's
+   // pending-placeholder refresh, gated on atlas:gear-hydrated so it does
+   // not re-render on every unrelated DOM change) previously had no signal
+   // at all that a failure had happened -- fetchAll() only ever dispatched
+   // its event on success, so a placeholder rendered while this request was
+   // in flight stayed on "still checking" forever once it failed, with
+   // nothing left to prompt the one legitimate refresh to an honest error
+   // state. Mirrors atlas:gear-hydrated's shape closely enough for a
+   // listener that only cares "something changed, re-check get()" to reuse.
+   document.dispatchEvent(new CustomEvent('atlas:gear-hydrate-failed',{detail:{uid,error:failed.error}}));
+   return failed;
   }).finally(()=>{if(inflight?.promise===promise)inflight=null});
   inflight={uid,promise};
   return promise;
@@ -143,10 +193,19 @@
   const incomingUid=reason?.user_id;
   if(incomingUid&&(incomingUid===cache.uid||incomingUid===inflight?.uid))return;
   cache=emptyState(null,false);
+  // P1 (release-blocking, 2026-08-28, NO-GO QA): a genuine account switch
+  // used to reset the internal cache object here but never touched the
+  // bare window.combos/window.lures globals every reader (angler-profile.js's
+  // stats(), mentor-pro.js's bestOwned(), etc) actually peeks directly --
+  // leaving the PREVIOUS account's numbers visible until the new account's
+  // fetch happens to complete. Clearing them here means a real account
+  // switch shows "still checking" (via the loaded:false these readers
+  // already handle), never another angler's gear.
+  window.combos=[];window.lures=[];
  }
  function forceReset(){cache=emptyState(null,false);inflight=null}
  function get(){return cache}
- function isHydratedFor(uid){return !!uid&&cache.uid===uid&&cache.loaded}
+ function isHydratedFor(uid){return !!uid&&cache.uid===uid&&cache.luresLoaded}
 
  document.addEventListener('atlas:account-changed',e=>invalidate(e.detail));
  document.addEventListener('atlas:inventory-changed',()=>{forceReset();ensure({force:true}).catch(()=>{})});
