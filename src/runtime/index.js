@@ -16,7 +16,7 @@
 import { initSentry } from './sentry.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js';
 import { makeApi } from './api.js';
-import { initTurnstile, captchaToken, resetTurnstile } from './turnstile.js';
+import { initTurnstile, captchaToken, resetTurnstile, turnstileState } from './turnstile.js';
 import { createAuthState } from './auth-state.js';
 
 // First real line of the module: monitoring should be recording before
@@ -496,6 +496,21 @@ function explainAuthError(error) {
   if (raw.includes('failed to fetch') || raw.includes('networkerror') || raw.includes('load failed')) {
     return { title: 'Could not reach FishWizz', body: 'Check your connection and try again.' };
   }
+  // Live-verified 2026-08-28: Supabase's own message for this is "captcha
+  // protection: request disallowed (no captcha_token found)" or "captcha
+  // verification process failed" -- both used to fall through to the raw
+  // generic fallback below and show that exact backend string verbatim,
+  // giving no indication anything could be retried. resetTurnstile() below
+  // gives a fresh widget/token on the next attempt regardless of which of
+  // these two shapes it was.
+  if (raw.includes('captcha')) {
+    return {
+      title: 'Verification did not complete',
+      body: turnstileState().configured
+        ? 'The security check below has been reset — complete it again and retry.'
+        : 'Verification is temporarily unavailable on this deployment. This is a site configuration issue, not something wrong with your email or password — please try again shortly.',
+    };
+  }
   return { title: 'That did not work', body: error?.message || 'Please try again.' };
 }
 
@@ -564,10 +579,23 @@ function rebindAuthControls() {
     }
   };
 
+  // A request sent with no captcha token, while Turnstile IS configured and
+  // just hasn't been completed yet, wastes a round trip and (on signup)
+  // one of Supabase's few emails/hour, then shows a confusing backend
+  // string. Catching this before either request fires costs nothing and
+  // tells the person exactly what's missing.
+  function captchaPreflight() {
+    const t = turnstileState();
+    if (!t.configured || t.hasToken) return true; // not in use here, or already completed
+    say('err', 'Complete the verification check', t.ready ? 'Check the box above, then try again.' : 'Verification is still loading — wait a moment and try again.');
+    return false;
+  }
+
   const signIn = el('signIn');
   if (signIn) signIn.onclick = attempt(async () => {
     if (!email()) { say('err', 'Enter your email', 'We need it to find your account.'); return {}; }
     if (!password()) { say('err', 'Enter your password', ''); return {}; }
+    if (!captchaPreflight()) return {};
     const r = await window.fishwizzAuth.signIn(email(), password());
     resetTurnstile();   // the token just submitted is spent either way
     if (!r.error && r.data?.session) {
@@ -595,6 +623,7 @@ function rebindAuthControls() {
     if (password().length < 6) {
       say('err', 'Password is too short', 'Use at least 6 characters.'); return {};
     }
+    if (!captchaPreflight()) return {};
     const r = await window.fishwizzAuth.signUp(email(), password());
     resetTurnstile();   // the token just submitted is spent either way
     if (!r.error) {
