@@ -46,7 +46,7 @@
     "works_when": { "type": "string", "minLength": 1 },
     "fails_when": { "type": "string", "minLength": 1 },
     "diagnostic_signals": { "type": "string", "minLength": 1 },
-    "casting_access_required": { "$ref": "shared-definitions.schema.json#/$defs/casting_access_enum" },
+    "casting_access_required": { "anyOf": [{ "$ref": "shared-definitions.schema.json#/$defs/casting_access_enum" }, { "type": "null" }] },
 
     "environment_applicability": { "$ref": "shared-definitions.schema.json#/$defs/environment_applicability" },
     "conservation_notes": { "type": ["string", "null"] },
