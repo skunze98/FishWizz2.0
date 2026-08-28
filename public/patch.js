@@ -1,12 +1,28 @@
 // Atlas hotfix: water intelligence rendering + Mission RPC compatibility
+// P2 ("provide traceable recommendation evidence" -- staging QA,
+// 2026-08-27): every card below now names WHAT KIND of evidence it is and,
+// where the record actually carries one, its real source/timestamp -- see
+// evidence-provenance.js's own header for the full root cause. A record
+// with no identifiable source (evidence.sourceLabel() returns null) is
+// never labeled OFFICIAL just because it came from this function rather
+// than the rules engine -- it gets ESTIMATED instead, with that fact
+// stated plainly rather than silently omitted.
 window.renderWater=function(p){
   const w=p.water,e=p.evidence||{},intel=p.intelligence_summary||{};
+  const evid=window.FishWizzEvidence;
+  const chip=(kind,label)=>evid?evid.chip(kind,label):`<span class="source-chip ${kind}">${esc(label)}</span>`;
   const guidance=(intel.derived_guidance||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  const gauges=(p.gauges||[]).map(g=>`<div class="result"><b>${esc(g.site_name||g.site_id)}</b>${(g.parameters||[]).map(o=>`<p>${esc(o.parameter_name||o.parameter_code)}: <b>${esc(o.value)} ${esc(o.unit||'')}</b><br><span class="muted tiny">${new Date(o.observed_at).toLocaleString()}</span></p>`).join('')}</div>`).join('');
-  const species=(p.species||[]).map(s=>`<div class="result"><b>${esc(s.species_name)}</b><br><span class="muted">Confidence ${Math.round(Number(s.confidence||0)*100)}% · ${esc(s.source_name)}</span></div>`).join('');
+  // A gauge reading is a genuine, timestamped current record -- LIVE, with
+  // the actual observed_at already shown per parameter (unchanged).
+  const gauges=(p.gauges||[]).map(g=>`<div class="result">${chip('live','LIVE — agency gauge reading')}<b>${esc(g.site_name||g.site_id)}</b>${(g.parameters||[]).map(o=>`<p>${esc(o.parameter_name||o.parameter_code)}: <b>${esc(o.value)} ${esc(o.unit||'')}</b><br><span class="muted tiny">${new Date(o.observed_at).toLocaleString()}</span></p>`).join('')}</div>`).join('');
+  const species=(p.species||[]).map(s=>{const src=evid?.sourceLabel?.(s.source_name);return `<div class="result">${src?chip('official',`OFFICIAL — ${src}`):chip('estimated','ESTIMATED — no named source')}<b>${esc(s.species_name)}</b><br><span class="muted">Confidence ${Math.round(Number(s.confidence||0)*100)}%${src?` · ${esc(src)}`:''}</span></div>`}).join('');
   const access=(p.access||[]).map(a=>`<div class="result"><b>${esc(a.name||a.access_type||'Access point')}</b><br><span class="muted">${esc(a.public_status||'Status not verified')}</span></div>`).join('');
-  const reports=(p.reports||[]).map(r=>`<div class="result"><b>${esc(r.title||r.source_name)}</b><p>${esc(r.summary)}</p><span class="muted tiny">${esc(r.source_name)} · ${r.age_hours==null?'age unknown':r.age_hours+' hours old'} · confidence ${Math.round(Number(r.confidence_score||0)*100)}%</span></div>`).join('');
-  const history=[...(p.personal_spots||[]),...(p.personal_catches||[])].map(x=>`<div class="result"><b>${esc(x.name||x.species||'Personal record')}</b><br><span class="muted">${esc(x.notes||x.lure_bait||x.spot_type||'')}</span></div>`).join('');
+  const reports=(p.reports||[]).map(r=>{const src=evid?.sourceLabel?.(r.source_name);return `<div class="result">${src?chip('official',`OFFICIAL — ${src}`):chip('estimated','ESTIMATED — no named source')}<b>${esc(r.title||r.source_name||'Report')}</b><p>${esc(r.summary)}</p><span class="muted tiny">${esc(r.source_name||'Source not identified')} · ${r.age_hours==null?'age unknown':r.age_hours+' hours old'} · confidence ${Math.round(Number(r.confidence_score||0)*100)}%</span></div>`}).join('');
+  // PERSONAL: this account's own saved spots/catches -- already scoped to
+  // the signed-in user by the query this data came from, so labeling it
+  // "your own record" here discloses nothing the viewer doesn't already
+  // have full access to.
+  const history=[...(p.personal_spots||[]),...(p.personal_catches||[])].map(x=>`<div class="result">${chip('personal','PERSONAL — your own record')}<b>${esc(x.name||x.species||'Personal record')}</b><br><span class="muted">${esc(x.notes||x.lure_bait||x.spot_type||'')}</span></div>`).join('');
   $('waterProfile').innerHTML=`<span class="eyebrow">${esc(w.source_label||w.source_system)}</span><h2>${esc(w.name)}</h2><p>${esc(w.state_code)} · ${esc(w.water_type)} ${w.county_name?'· '+esc(w.county_name):''}</p><div><span class="pill">Confidence: ${esc(e.confidence||'limited')}</span><span class="pill">${esc(e.species_count||0)} species</span><span class="pill">${esc(e.access_count||0)} access</span><span class="pill">${esc(e.gauge_count||0)} gauges</span><span class="pill">${esc(e.report_count||0)} reports</span></div><div class="card intelligence"><span class="eyebrow">Atlas intelligence</span><h3>${esc((e.confidence||'limited').toUpperCase())} confidence</h3><ul>${guidance||'<li>No derived guidance available yet.</li>'}</ul></div><div class="row"><button id="missionHere" class="btn gold">Build Mission Here</button><button id="refreshGauge" class="btn">Refresh Live Water</button><button id="addSpot" class="btn ghost">Save a Spot</button></div><div class="tabs"><button data-tab="conditions" class="active">Conditions</button><button data-tab="species">Species</button><button data-tab="access">Access</button><button data-tab="reports">Reports</button><button data-tab="history">My History</button></div><div id="waterPanels">${panel('conditions',gauges,'No linked gauge yet.')}${panel('species',species,'No species evidence loaded yet.')}${panel('access',access,'No access records linked yet.')}${panel('reports',reports,'No recent reports ingested yet.')}${panel('history',history,'No personal history yet.')}</div>`;
   $('waterPanels').querySelector('[data-panel="conditions"]').classList.add('active');
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('[data-panel]').forEach(x=>x.classList.toggle('active',x.dataset.panel===b.dataset.tab))});

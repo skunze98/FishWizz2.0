@@ -61,6 +61,13 @@ const LEGACY = [
   // sinker can never be labeled "Owned lure" by one of them while the other
   // gets it right -- see that file's own header for the full root cause.
   '/tackle-taxonomy.js',
+  // P2 ("provide traceable recommendation evidence" -- staging QA,
+  // 2026-08-27): the one shared evidence-chip builder, used by patch.js
+  // (water intelligence: gauges/species/reports/personal history) and
+  // mission-v3.js (the Mission card's own rules-engine guidance) so a claim
+  // is never labeled LIVE/OFFICIAL without an actual record backing it --
+  // see that file's own header for the full root cause.
+  '/evidence-provenance.js',
   // P1 (staging QA, 2026-08-27): the one authoritative angler-profile fetch,
   // loaded here in the always-eager LEGACY chain rather than only inside
   // pwa.js's lazy `account` page group -- see that file's own header for why
