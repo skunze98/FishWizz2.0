@@ -17,3 +17,8 @@ supabase/.branches/
 
 # never commit cloud credentials
 CLOUDFLARE_API_TOKEN*
+
+# local tool caches -- npm's cacache dir and wrangler's local config/auth
+# state, not source
+.npm-cache/
+.wrangler-config/

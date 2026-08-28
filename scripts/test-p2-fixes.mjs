@@ -19,13 +19,16 @@ function check(label, cond) {
 function section(name) { console.log(`\n${name}`); }
 
 function stubEl(over = {}) {
-  return {
+  const el = {
     value: '', hidden: false, textContent: '', innerHTML: '', dataset: {},
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
     attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; }, getAttribute(k) { return this.attrs[k]; },
     insertAdjacentElement() {}, insertAdjacentHTML() {}, appendChild() {}, remove() {}, closest() { return null; }, addEventListener() {}, focus() {},
+    querySelectorAll() { return []; }, replaceWith() {}, onclick: null,
     files: [], ...over,
   };
+  el.cloneNode = () => stubEl();
+  return el;
 }
 
 function makeDocument(fields) {

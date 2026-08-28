@@ -17,7 +17,19 @@
 
  function emptyState(uid,loaded){return{uid,at:0,combos:[],rods:[],reels:[],lures:[],loaded}}
 
+ // P0 ("cancel or ignore stale asynchronous responses using account id plus
+ // generation/request tokens"): every request started here is tagged with
+ // the account-change generation active at the moment it was fired
+ // (window.fishwizzAuth.generation(), incremented once per REAL account
+ // switch by src/runtime/index.js's applySession()). If that generation has
+ // moved on by the time the response arrives -- Account B is now active,
+ // not the Account A this request was actually for -- the result is
+ // discarded outright rather than applied, even if the uid happened to
+ // still match by coincidence (a real defense the earlier uid-only check
+ // didn't fully provide: two rapid switches A->B->A share the same uid on
+ // both ends but are still two different, non-interchangeable sessions).
  async function fetchAll(uid){
+  const requestGeneration=window.fishwizzAuth?.generation?.()??null;
   const q=encodeURIComponent(uid);
   const [combos,rods,reels,lures]=await Promise.all([
    api(`/rest/v1/combos?select=id,atlas_id,name,role,primary_lure,rod_id,reel_id&owner_id=eq.${q}&order=atlas_id.asc`),
@@ -25,6 +37,12 @@
    api(`/rest/v1/reels?select=id,brand,model,reel_type,line_type,line_test,line_color,role&owner_id=eq.${q}&order=brand.asc,model.asc`),
    api(`/rest/v1/lures?select=id,category,brand,model,color,size_weight,quantity,species,clarity,conditions,cover,assigned_combo_id,trailer_pairing,confidence,storage_location,last_used_at,catches_count,bites_count&owner_id=eq.${q}&order=category.asc,model.asc`),
   ]);
+  const currentGeneration=window.fishwizzAuth?.generation?.()??null;
+  if(requestGeneration!==null&&currentGeneration!==null&&requestGeneration!==currentGeneration){
+   const stale=new Error(`stale gear fetch for ${uid} (generation ${requestGeneration}, now ${currentGeneration})`);
+   stale.stale=true;
+   throw stale;
+  }
   cache={uid,at:Date.now(),combos:combos||[],rods:rods||[],reels:reels||[],lures:lures||[],loaded:true};
   // Kept for every reader that peeks at these globals directly (mentor-pro.js's
   // bestOwned(), gear-coach-lite.js, etc) instead of calling ensure() itself --
@@ -94,6 +112,14 @@
   if(!force&&cache.uid===uid&&cache.loaded&&Date.now()-cache.at<TTL)return cache;
   if(inflight?.uid===uid&&!force)return inflight.promise;
   const promise=fetchAll(uid).catch(e=>{
+   if(e?.stale){
+    // Discarded by design, not a failure -- the account moved on while this
+    // request was in flight. Whatever the current cache now holds (for
+    // whichever account is actually active) is the right thing to hand
+    // back, silently.
+    console.warn('FishWizz:',e.message);
+    return cache;
+   }
    console.error('FishWizz: shared gear state load failed',e);
    // A failed fetch must never look identical to "confirmed zero" -- error
    // is a real, checkable field, not just an inferred loaded:false. Callers

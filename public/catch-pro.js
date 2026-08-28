@@ -10,8 +10,31 @@
  // this defines its own copy (idempotent by id) rather than assuming it.
  const REQUIRED_LABEL={cWater:'Water',cSpecies:'Species'};
  function ensureRequiredStyles(){if($('fwRequiredStyles'))return;const s=document.createElement('style');s.id='fwRequiredStyles';s.textContent=`.fw-field-error{outline:2px solid #e16b6b!important;outline-offset:1px}.fw-field-error-msg{color:#e16b6b;font-size:12px;margin:4px 0 0}`;document.head.appendChild(s)}
- function markRequired(id,isError){ensureRequiredStyles();const el=$(id);if(!el)return;el.classList.toggle('fw-field-error',!!isError);el.setAttribute('aria-invalid',isError?'true':'false');const msgId=`${id}Error`;let msg=$(msgId);if(isError){if(!msg){msg=document.createElement('p');msg.id=msgId;msg.className='fw-field-error-msg';msg.setAttribute('role','alert');el.insertAdjacentElement('afterend',msg)}msg.textContent=`${REQUIRED_LABEL[id]||'This field'} is required.`;el.setAttribute('aria-describedby',msgId)}else if(msg){msg.remove();el.removeAttribute('aria-describedby')}}
- function fillFromMission(){const m=window.lastMission,p=window.atlasFishingLocation,w=window.selectedWater,c=preferredCombo();const r=m?.recommendation?.primary||{};if($('cWater')&&!$('cWater').value)window.FishWizzGuard?.setGuardedValue?.($('cWater'),w?.name||p?.water_name||m?.context?.water||'','water');if($('cSpot')&&!$('cSpot').value&&p)$('cSpot').value=`${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}`;if($('cSpecies')&&!$('cSpecies').value)window.FishWizzGuard?.setGuardedValue?.($('cSpecies'),m?.context?.target||'','species');if($('cCombo')&&!$('cCombo').value&&c)$('cCombo').value=c.name||c.atlas_id||'';if($('cLure')&&!$('cLure').value)window.FishWizzGuard?.setGuardedValue?.($('cLure'),r.lure||c?.primary_lure||'','lure');if($('cColor')&&!$('cColor').value)window.FishWizzGuard?.setGuardedValue?.($('cColor'),r.color||'','color');if($('cTryNext')&&!$('cTryNext').value)$('cTryNext').value=r.switch_when||m?.recommendation?.adjustment_plan||'';update()}
+ // Generalized from the old markRequired(id,isError) so P0 measurement
+ // validation (below) can show its own message on the same field-error UI
+ // instead of re-implementing it. markRequired() is now a thin wrapper kept
+ // for its existing required-field call sites and default message.
+ function markFieldError(id,message){ensureRequiredStyles();const el=$(id);if(!el)return;el.classList.toggle('fw-field-error',!!message);el.setAttribute('aria-invalid',message?'true':'false');const msgId=`${id}Error`;let msg=$(msgId);if(message){if(!msg){msg=document.createElement('p');msg.id=msgId;msg.className='fw-field-error-msg';msg.setAttribute('role','alert');el.insertAdjacentElement('afterend',msg)}msg.textContent=message;el.setAttribute('aria-describedby',msgId)}else if(msg){msg.remove();el.removeAttribute('aria-describedby')}}
+ function markRequired(id,isError){markFieldError(id,isError?`${REQUIRED_LABEL[id]||'This field'} is required.`:null)}
+ // P0 ("respect explicitly cleared catch fields" -- staging QA, 2026-08-27):
+ // "after building a Walleye Mission, the user cleared Water/Species/Lure in
+ // the Catch form; clicking Save catch silently restored Mission values."
+ // Root cause: fillFromMission() re-runs on every atlas:fishing-position /
+ // atlas:preferred-combo / atlas:go-to-combo / atlas:mission-built event --
+ // GPS position updates in particular can keep firing for as long as the
+ // Catch page is open -- and its old "only fill if currently empty" check
+ // could not tell "the user deliberately cleared this" apart from "this was
+ // never filled in the first place": both look identical (an empty input),
+ // so the very next context event silently refilled whatever had just been
+ // cleared, moments before Save. `touched` tracks every field the user has
+ // actually interacted with (typing OR clearing both count -- 'input' fires
+ // either way) so a Mission/position/combo update can keep offering fresh
+ // defaults into untouched fields without ever overwriting one the user has
+ // already made a decision about, cleared or not.
+ const touched=new Set();
+ const AUTOFILL_FIELDS=['cWater','cSpot','cSpecies','cCombo','cLure','cColor','cTryNext'];
+ function wireTouchTracking(){AUTOFILL_FIELDS.forEach(id=>{const el=$(id);if(el&&!el.dataset.touchWired){el.dataset.touchWired='1';el.addEventListener('input',()=>touched.add(id))}})}
+ function fillFromMission(){wireTouchTracking();const m=window.lastMission,p=window.atlasFishingLocation,w=window.selectedWater,c=preferredCombo();const r=m?.recommendation?.primary||{};if($('cWater')&&!touched.has('cWater'))window.FishWizzGuard?.setGuardedValue?.($('cWater'),w?.name||p?.water_name||m?.context?.water||'','water');if($('cSpot')&&!touched.has('cSpot')&&p)$('cSpot').value=`${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}`;if($('cSpecies')&&!touched.has('cSpecies'))window.FishWizzGuard?.setGuardedValue?.($('cSpecies'),m?.context?.target||'','species');if($('cCombo')&&!touched.has('cCombo')&&c)$('cCombo').value=c.name||c.atlas_id||'';if($('cLure')&&!touched.has('cLure'))window.FishWizzGuard?.setGuardedValue?.($('cLure'),r.lure||c?.primary_lure||'','lure');if($('cColor')&&!touched.has('cColor'))window.FishWizzGuard?.setGuardedValue?.($('cColor'),r.color||'','color');if($('cTryNext')&&!touched.has('cTryNext'))$('cTryNext').value=r.switch_when||m?.recommendation?.adjustment_plan||'';update()}
  async function uploadPhoto(){const f=$('cPhoto')?.files?.[0];if(!f||!session?.user)return null;if(f.size>8*1024*1024)throw Error('Catch photo must be under 8 MB.');const ext=(f.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'').toLowerCase()||'jpg',path=`${session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;const r=await fetch(`${SUPABASE_URL}/storage/v1/object/catch-photos/${path}`,{method:'POST',headers:{apikey:KEY,Authorization:`Bearer ${session.access_token}`,'Content-Type':f.type||'image/jpeg','x-upsert':'false'},body:f});if(!r.ok){await r.text();throw Error('Could not upload catch photo.')}return path}
  // P2-13 ("run local required-field validation before authentication/
  // network checks"): this used to check session first, so a signed-out
@@ -19,13 +42,27 @@
  // after signing in, would immediately hit the *separate* "Add the water and
  // species" error -- two round trips to learn what was wrong the first time.
  // Field validation now always runs first and keeps whatever was typed.
- async function enhancedSave(){if(busy)return;const water=$('cWater')?.value.trim(),species=$('cSpecies')?.value.trim();if(!water||!species){stat('Add the water and species before saving.','err');markRequired('cWater',!water);markRequired('cSpecies',!species);return}markRequired('cWater',false);markRequired('cSpecies',false);if(!session){stat('Add value confirmed. Sign in to save this catch to your fishing journal -- your entry is not lost.','err');return}
+ async function enhancedSave(){if(busy)return;const water=$('cWater')?.value.trim(),species=$('cSpecies')?.value.trim();if(!water||!species){stat('Add the water and species before saving.','err');markRequired('cWater',!water);markRequired('cSpecies',!species);return}markRequired('cWater',false);markRequired('cSpecies',false);
+  // P0 ("enforce valid catch measurements" -- staging QA, 2026-08-27):
+  // "FishWizz accepted a Bluegill measuring -5 in and 9999 lb." Both fields
+  // are optional -- empty always passes -- but anything actually entered is
+  // validated against the same bounds the database now enforces (see
+  // supabase/migrations/20260827000000_valid_catch_measurements.sql) BEFORE
+  // this reaches the network, and never clamped or silently rewritten: an
+  // out-of-range entry is rejected with the field left exactly as typed.
+  const measure=window.FishWizzMeasure;
+  const lengthCheck=measure?measure.validateMeasurement($('cLength')?.value,'length_in'):{ok:true,value:$('cLength')?.value?Number($('cLength').value):null};
+  const weightCheck=measure?measure.validateMeasurement($('cWeight')?.value,'weight_lb'):{ok:true,value:$('cWeight')?.value?Number($('cWeight').value):null};
+  markFieldError('cLength',lengthCheck.ok?null:lengthCheck.message);
+  markFieldError('cWeight',weightCheck.ok?null:weightCheck.message);
+  if(!lengthCheck.ok||!weightCheck.ok){stat(!lengthCheck.ok?lengthCheck.message:weightCheck.message,'err');return}
+  if(!session){stat('Add value confirmed. Sign in to save this catch to your fishing journal -- your entry is not lost.','err');return}
   // P0-1: never let an email-shaped value reach a fishing-domain field --
   // see field-guard.js for why this is a guard at the save boundary rather
   // than a fix at a specific (unconfirmed) injection site.
   const guard=window.FishWizzGuard;
   for(const[label,value]of[['water',water],['species',species]]){const check=guard?.rejectIfEmailShaped?.(value,label);if(check&&!check.ok){stat(check.message,'err');return}}
-  busy=true;const button=$('saveCatch');if(button){button.disabled=true;button.textContent='Saving catch…'}try{const pos=window.atlasFishingLocation||window.AtlasMap?.getPosition?.(),w=window.selectedWater||window.atlasMapContext?.selected_water,s=window.atlasActiveSession,m=window.lastMission;const learning=($('cLearn')?.value||'').trim(),why=($('cWhyWorked')?.value||'').trim(),next=($('cTryNext')?.value||'').trim(),confidence=$('cConfidence')?.value,length=$('cLength')?.value,weight=$('cWeight')?.value,released=$('cReleased')?.value,photo_path=await uploadPhoto();const waterSnapshot={...(window.atlasMapContext||s?.water_snapshot||{}),atlas_mission:m?{context:m.context,recommendation:{start_zone:m.recommendation?.start_zone,adjustment_plan:m.recommendation?.adjustment_plan,primary:m.recommendation?.primary}}:null};const row={owner_id:session.user.id,water,spot:$('cSpot')?.value||null,species,combo_name:$('cCombo')?.value||null,lure_bait:$('cLure')?.value||null,color:$('cColor')?.value||null,length_in:length?Number(length):null,weight_lb:weight?Number(weight):null,released:released===''?null:released==='true',photo_path,learned:learning||null,why_worked:why||null,try_next:next||null,confidence:confidence?Number(confidence):null,waterbody_id:w?.id||s?.waterbody_id||pos?.waterbody_id||null,latitude:pos?.lat||s?.latitude||null,longitude:pos?.lon||s?.longitude||null,position_method:pos?.method||'mission_or_session',position_accuracy_m:pos?.accuracy||null,weather_snapshot:window.atlasLiveWeather||s?.weather_snapshot||{},water_snapshot:waterSnapshot,session_id:s?.id||null};await api('/rest/v1/catches',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});await loadCatches();stat(`${species} saved to your fishing history.`,'ok');
+  busy=true;const button=$('saveCatch');if(button){button.disabled=true;button.textContent='Saving catch…'}try{const pos=window.atlasFishingLocation||window.AtlasMap?.getPosition?.(),w=window.selectedWater||window.atlasMapContext?.selected_water,s=window.atlasActiveSession,m=window.lastMission;const learning=($('cLearn')?.value||'').trim(),why=($('cWhyWorked')?.value||'').trim(),next=($('cTryNext')?.value||'').trim(),confidence=$('cConfidence')?.value,released=$('cReleased')?.value,photo_path=await uploadPhoto();const waterSnapshot={...(window.atlasMapContext||s?.water_snapshot||{}),atlas_mission:m?{context:m.context,recommendation:{start_zone:m.recommendation?.start_zone,adjustment_plan:m.recommendation?.adjustment_plan,primary:m.recommendation?.primary}}:null};const row={owner_id:session.user.id,water,spot:$('cSpot')?.value||null,species,combo_name:$('cCombo')?.value||null,lure_bait:$('cLure')?.value||null,color:$('cColor')?.value||null,length_in:lengthCheck.value,weight_lb:weightCheck.value,released:released===''?null:released==='true',photo_path,learned:learning||null,why_worked:why||null,try_next:next||null,confidence:confidence?Number(confidence):null,waterbody_id:w?.id||s?.waterbody_id||pos?.waterbody_id||null,latitude:pos?.lat||s?.latitude||null,longitude:pos?.lon||s?.longitude||null,position_method:pos?.method||'mission_or_session',position_accuracy_m:pos?.accuracy||null,weather_snapshot:window.atlasLiveWeather||s?.weather_snapshot||{},water_snapshot:waterSnapshot,session_id:s?.id||null};await api('/rest/v1/catches',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});await loadCatches();stat(`${species} saved to your fishing history.`,'ok');
   // P2-11 ("one consistent post-save catch-form policy"): every catch-
   // specific field clears here, with no exceptions -- cWater/cCombo used to
   // be silently skipped (the tracker's own evidence: "Water and Combo
@@ -37,13 +74,35 @@
   // reattach a *different*, newly-selected spot to a row that already saved;
   // that row already posted with its own captured lat/lon above and is never
   // revisited by this function.
-  ['cWater','cSpot','cSpecies','cCombo','cLure','cColor','cLearn','cWhyWorked','cTryNext','cLength','cWeight'].forEach(id=>{if($(id))$(id).value=''});if($('cConfidence'))$('cConfidence').value='';if($('cReleased'))$('cReleased').value='';if($('cPhoto'))$('cPhoto').value='';clearPreview();document.dispatchEvent(new CustomEvent('atlas:catch-saved',{detail:row}));setTimeout(fillFromMission,50)}catch(e){stat(e.message,'err')}finally{busy=false;if(button){button.disabled=false;button.textContent='Save catch'}}}
+  ['cWater','cSpot','cSpecies','cCombo','cLure','cColor','cLearn','cWhyWorked','cTryNext','cLength','cWeight'].forEach(id=>{if($(id))$(id).value=''});if($('cConfidence'))$('cConfidence').value='';if($('cReleased'))$('cReleased').value='';if($('cPhoto'))$('cPhoto').value='';clearPreview();markFieldError('cLength',null);markFieldError('cWeight',null);
+  // A saved catch is a genuinely NEW, fresh form from this point on -- clear
+  // every field's touched status so the next Mission/position/combo update
+  // can offer defaults again, the same "apply once per untouched form" rule
+  // a first-ever open of this page gets.
+  touched.clear();
+  document.dispatchEvent(new CustomEvent('atlas:catch-saved',{detail:row}));setTimeout(fillFromMission,50)}catch(e){stat(e.message,'err')}finally{busy=false;if(button){button.disabled=false;button.textContent='Save catch'}}}
  function wire(){const b=$('saveCatch');if(!b||b.dataset.pro)return;b.dataset.pro='1';ensureCss();ensureLearningFields();const clone=b.cloneNode(true);b.replaceWith(clone);clone.textContent='Save catch';clone.onclick=enhancedSave;let note=document.createElement('div');note.className='catch-context-strip';note.id='catchContextNote';clone.insertAdjacentElement('afterend',note);const quick=document.createElement('div');quick.id='catchQuickLearn';quick.innerHTML='<button type="button" class="btn ghost" data-catch-note="Same cast or angle worked again">Same cast worked</button><button type="button" class="btn ghost" data-catch-note="A change in angle, speed, depth, or lure triggered the bite">Change triggered bite</button>';note.insertAdjacentElement('afterend',quick);quick.querySelectorAll('[data-catch-note]').forEach(x=>x.onclick=()=>{const v=x.dataset.catchNote;if($('cWhyWorked'))$('cWhyWorked').value=$('cWhyWorked').value?`${$('cWhyWorked').value}; ${v}`:v;const d=$('catchLearningMore');if(d)d.open=true});fillFromMission()}
  // P2-11 ("label inherited Mission/spot context"): bits now names which
  // *visible form fields* -- not just abstract "spot"/"Mission" -- came from
  // context rather than being typed, so it reads as an editable prefill
  // notice rather than just a save-time confirmation.
  function update(){const n=$('catchContextNote');if(!n)return;const p=window.atlasFishingLocation||window.AtlasMap?.getPosition?.(),s=window.atlasActiveSession,m=window.lastMission,c=preferredCombo(),bits=[];if($('cWater')?.value&&(p||m))bits.push('Water');if($('cSpot')?.value&&p)bits.push('Spot');if($('cSpecies')?.value&&m)bits.push('Species');if($('cCombo')?.value&&c)bits.push('Combo');n.innerHTML=`<b>FishWizz will remember this catch</b><span class="muted tiny">${bits.length?`${bits.join(', ')} filled in from your current ${[p?'spot':null,m?'Mission':null,s?'session':null].filter(Boolean).join('/')||'context'} -- edit or clear anything that is not right before saving.`:'Save the catch now; add detail only when it helps.'}</span>`}
- document.readyState==='loading'?document.addEventListener('DOMContentLoaded',()=>setTimeout(wire,1200)):setTimeout(wire,1200);document.addEventListener('atlas:fishing-position',fillFromMission);document.addEventListener('atlas:preferred-combo',fillFromMission);document.addEventListener('atlas:go-to-combo',fillFromMission);document.addEventListener('atlas:mission-built',fillFromMission);document.addEventListener('atlas:catch-saved',update);
- globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{catchPro:{enhancedSave}});
+ // P2 ("make the first catch form complete before saving" -- staging QA,
+ // 2026-08-27): "length/weight/release/photo/confidence controls became
+ // visible only AFTER the first catch was saved." Root cause: this file is
+ // itself lazy-loaded (pwa.js only requests it once the Catches page is
+ // visited -- see pwa.js's `catches` group), so by the time it runs,
+ // document.readyState is already 'complete' -- yet wire() (the only thing
+ // that ever injects the Length/Weight/Release/Photo controls, via
+ // ensureLearningFields()) was still delayed an ADDITIONAL, unexplained
+ // 1200ms past that. A tester who filled Water/Species/Combo/Lure/Color
+ // (all static HTML, visible immediately) and clicked Save within that
+ // window -- entirely plausible for anyone moving at normal or QA-testing
+ // speed -- would genuinely never have seen those fields at all until some
+ // later, unrelated re-render coincided with the timer finally firing. No
+ // real reason for this file to wait 1200ms once it has actually loaded and
+ // the DOM is ready; wire() itself is already idempotent and safe to call
+ // immediately.
+ document.readyState==='loading'?document.addEventListener('DOMContentLoaded',wire):wire();document.addEventListener('atlas:fishing-position',fillFromMission);document.addEventListener('atlas:preferred-combo',fillFromMission);document.addEventListener('atlas:go-to-combo',fillFromMission);document.addEventListener('atlas:mission-built',fillFromMission);document.addEventListener('atlas:catch-saved',update);
+ globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{catchPro:{enhancedSave,fillFromMission,wire,touched,markFieldError}});
 })();

@@ -17,13 +17,26 @@
  // fit.js use) instead of guessing from a synchronous peek, so `combos`/
  // `lures` below are only ever real, post-hydration numbers -- this file's
  // own render() only shows an empty/low-gear message once this has resolved.
+ // P1 ("persist onboarding and Mission state" -- staging QA, 2026-08-27):
+ // "onboarding saved nickname 'QA test Angler,' but after refresh Mission
+ // returned to 'Ready, shunze?'." This used to rely entirely on
+ // angler-profile.js dispatching atlas:profile-loaded at some point --
+ // which only ever happens once the ACCOUNT page has been visited (see
+ // profile-state.js's own header for the full root cause: pwa.js only lazy-
+ // loads angler-profile.js as part of the `account` page group, a separate
+ // group from `mission`, so a refresh that lands back on Mission never
+ // triggered it at all). snapshot() now awaits the shared profile store
+ // directly, the same way it already awaits the shared gear store below --
+ // render()'s greeting is correct on the very first paint, not dependent on
+ // whether some other page happens to have loaded first.
  async function snapshot(force=false){
   if(!session?.user)return{combos:0,lures:0,catches:0,recent:[],last:null};
   if(!force&&lastSnapshot&&Date.now()-lastSnapshotAt<15000)return{...lastSnapshot,last:lastMission()};
   try{
    const uid=encodeURIComponent(session.user.id);
-   const [gear,recentCatches]=await Promise.all([
+   const [gear,,recentCatches]=await Promise.all([
     window.FishWizzGearState?.ensure?.({force})||Promise.resolve({combos:[],lures:[]}),
+    window.FishWizzProfileState?.ensure?.({force})||Promise.resolve(null),
     api(`/rest/v1/catches?select=id,water,species,caught_at,lure_bait&owner_id=eq.${uid}&order=caught_at.desc&limit=3`),
    ]);
    // P1-5 ("expose retrieval failures as an error instead of a legitimate
@@ -56,4 +69,5 @@
  function scheduleRefresh(force=false,delay=180){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refresh(force),delay)}
  function boot(){css();ensure();refresh();['atlas:profile-loaded','atlas:profile-ready','atlas:fishing-position','atlas:mission-built','atlas:gear-hydrated'].forEach(n=>document.addEventListener(n,()=>scheduleRefresh(false)));['atlas:inventory-changed','atlas:catch-saved','atlas:account-changed'].forEach(n=>document.addEventListener(n,()=>{lastSnapshot=null;lastSnapshotAt=0;scheduleRefresh(true,220)}));$('accountBtn')?.addEventListener('click',()=>scheduleRefresh(false,120))}
  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',boot):boot();
+ globalThis.__fishwizzTest=Object.assign(globalThis.__fishwizzTest||{},{today:{snapshot,render,profile}});
 })();

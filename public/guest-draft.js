@@ -46,6 +46,16 @@
   if(dirty)writeDraft(d);
  }
  function clearDraft(){try{localStorage.removeItem(KEY)}catch(e){}}
+ // P0 ("atomically clear every previous account's... drafts" on a real
+ // account change): the draft key is a single, unscoped localStorage slot,
+ // by design, so a signed-out guest's draft survives the sign-in transition
+ // it exists for (account-isolation.js's clearPersonalState() is only ever
+ // called when there WAS a previously signed-in account -- never on that
+ // guest->first-sign-in transition -- so this hook can't accidentally wipe
+ // the thing this file exists to preserve). It's the one thing that must
+ // still be cleared on a REAL switch away from a previously signed-in
+ // account, so the next account on this browser can't inherit it.
+ window.__fwGuestDraftClear=clearDraft;
  function wire(){FIELDS.forEach(id=>{const el=$(id);if(el&&!el.dataset.guestDraftWired){el.dataset.guestDraftWired='1';el.addEventListener('input',()=>saveField(id))}})}
  // Successfully building a Mission or saving a catch means the draft did its
  // job -- clear it so a stale value doesn't reappear next time those fields

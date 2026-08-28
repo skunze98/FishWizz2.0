@@ -21,7 +21,52 @@
  async function deleteTackle(id){const rows=window.lures||[],idx=rows.findIndex(v=>String(v.id)===String(id));if(idx<0)return;const item=rows[idx];if(!confirm('Delete this tackle item? This cannot be undone.'))return;rows.splice(idx,1);render(rows);try{const deleted=await api(`/rest/v1/lures?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(session.user.id)}`,{method:'DELETE',headers:{Prefer:'return=representation'}});if(!Array.isArray(deleted)||!deleted.length)throw Error('This item was not found in your account, so nothing was deleted.');document.dispatchEvent(new Event('atlas:inventory-changed'));stat('Tackle deleted.','ok')}catch(e){rows.splice(idx,0,item);render(rows);stat(e.message||'Could not delete this tackle item.','err')}}
  function render(rows){window.lures=rows;const q=($('tackleSearch')?.value||'').toLowerCase(),shown=rows.filter(x=>!q||[x.category,x.brand,x.model,x.color,x.storage_location].join(' ').toLowerCase().includes(q));const host=cards();if(host){host.innerHTML=shown.map(x=>`<article class="card"><span class="eyebrow">${escapeHtml(x.category||'Tackle')}</span><h2>${escapeHtml([x.brand,x.model].filter(Boolean).join(' ')||'Unnamed item')}</h2><p>${escapeHtml(x.size_weight||'')} ${x.color?'· '+escapeHtml(x.color):''}</p><p><b>Storage:</b> ${escapeHtml(x.storage_location||'Not mapped')}</p><div class="row"><button class="btn ghost" type="button" data-tk-edit="${escapeHtml(x.id)}">Edit</button><button class="btn bad" type="button" data-tk-delete="${escapeHtml(x.id)}">Delete</button></div></article>`).join('')||(q?'<div class="card">No tackle matches that search.</div>':'<div class="card"><h3>No tackle saved yet</h3><p class="muted">Your locker is ready whenever you want to add something.</p></div>');host.querySelectorAll('[data-tk-edit]').forEach(b=>b.onclick=()=>openTackleEdit(b.dataset.tkEdit));host.querySelectorAll('[data-tk-delete]').forEach(b=>b.onclick=()=>deleteTackle(b.dataset.tkDelete))}readiness(rows)}
  async function waitForSession(ms=5000){await Promise.race([window.fishwizzAuth?.ready,new Promise(r=>setTimeout(r,ms))]);return currentUser()}
- async function load({force=false}={}){if(loading)return;const uid=await waitForSession();if(!uid){loadedUser=null;state('Sign in to see your Tackle Locker','Your saved tackle stays tied to your account.');return}if(!force&&loadedUser===uid&&window.lures?.length){render(window.lures);return}loading=true;clearTimeout(retryTimer);state('Loading your Tackle Locker…','Restoring the tackle saved to your account.');try{const rows=await api(`/rest/v1/lures?select=id,category,brand,model,color,size_weight,quantity,restock,storage_location,last_used_at,catches_count,bites_count&owner_id=eq.${encodeURIComponent(uid)}&order=category.asc,model.asc`);if(currentUser()!==uid)return;loadedUser=uid;render(rows||[]);document.dispatchEvent(new CustomEvent('atlas:tackle-loaded',{detail:{count:(rows||[]).length,user_id:uid}}))}catch(e){console.error('Tackle load failed',e);state('Could not load your Tackle Locker','Your saved tackle has not been deleted. Check your connection and try again.',true);retryTimer=setTimeout(()=>currentUser()===uid&&load({force:true}),2500)}finally{loading=false}}
+ // P1 ("unify gear state across Mission, Gear, Catches, and Atlas" --
+ // staging QA, 2026-08-27): "Gear showed 2 setups/2 rods/2 reels; Tackle
+ // showed 5 items; Mission said 'No gear loaded' while simultaneously
+ // saying '2 combos known'." Root cause, confirmed by reading the actual
+ // shipped modules rather than guessing: THREE independent, uncoordinated
+ // fetches of /rest/v1/lures existed at once -- this function's own direct
+ // fetch, gear-state.js's fetchAll(), and app.js's loadLures() (now
+ // removed) -- each capable of overwriting the shared window.lures global
+ // and this page's own #tackleCards with whichever response happened to
+ // land last, independent of which one was actually current. This function
+ // now only ever reads from window.FishWizzGearState -- the one
+ // authoritative fetch Mission, Gear, Catches, and Tackle all now share --
+ // instead of running its own network request, so Tackle can never again
+ // show a different count than Mission/Gear/Atlas for the same account.
+ async function load({force=false}={}){
+  if(loading)return;
+  const uid=await waitForSession();
+  if(!uid){loadedUser=null;state('Sign in to see your Tackle Locker','Your saved tackle stays tied to your account.');return}
+  // isHydratedFor() (not the old local "loadedUser===uid && window.lures
+  // ?.length" check) also fixes a latent related bug: a genuinely EMPTY
+  // tackle locker (window.lures.length === 0) used to look identical to
+  // "not loaded yet" here, so it silently re-fetched on every single page
+  // visit instead of ever treating zero tackle as a real, cached answer.
+  if(!force&&window.FishWizzGearState?.isHydratedFor?.(uid)){loadedUser=uid;render(window.FishWizzGearState.get().lures||[]);return}
+  loading=true;clearTimeout(retryTimer);
+  state('Loading your Tackle Locker…','Restoring the tackle saved to your account.');
+  const result=await window.FishWizzGearState?.ensure?.({force})??{lures:[],error:'Gear state is not available.'};
+  loading=false;
+  if(currentUser()!==uid)return; // the account changed while this was in flight
+  if(result.error){
+    // A genuine failure must read as an error, never a false "no tackle" --
+    // gear-state.js's own ensure() already makes this distinction (loaded
+    // stays false, error carries a real message); this just surfaces it in
+    // the UI this page already had for it, instead of quietly rendering an
+    // empty locker.
+    console.error('Tackle load failed',result.error);
+    state('Could not load your Tackle Locker','Your saved tackle has not been deleted. Check your connection and try again.',true);
+    retryTimer=setTimeout(()=>currentUser()===uid&&load({force:true}),2500);
+    return;
+  }
+  loadedUser=uid;render(result.lures||[]);
+  // gear-state.js's fetchAll() already dispatches atlas:tackle-loaded itself
+  // on every real fetch -- re-dispatching it here on every render (including
+  // cache-hit renders where nothing actually changed) would be exactly the
+  // kind of second, uncoordinated event source this whole fix removes.
+ }
  // The bare `lures=` writes that used to sit next to each window.lures
  // assignment above never threw (classic non-strict script: writing an
  // undeclared identifier creates a duplicate global instead of a

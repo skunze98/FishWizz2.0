@@ -9,28 +9,51 @@
   // already own the real reset. Removed rather than "fixed" with logging,
   // since a catch that can never fire is nothing to monitor.
   window.combos=[];window.lures=[];window.inventory=[];window.catches=[];window.selectedWater=null;window.lastMission=null;
-  const arsenal=$('arsenalCards'),tackle=$('tackleCards'),catches=$('recentCatches'),plans=$('planCards'),summary=$('planSummary'),combo=$('cCombo');
+  // P0 (staging QA, 2026-08-27, "atomically clear every previous account's...
+  // Water value, location..."): the reset above never touched the actual
+  // #mWater/#cWater input VALUES or window.atlasFishingLocation -- only the
+  // in-memory globals and a few rendered lists. A genuine account switch
+  // used to leave whatever the previous account had typed sitting in the
+  // Mission/Catch form fields and the selected map position, fully visible
+  // to the next account signed in on the same tab.
+  window.atlasFishingLocation=null;window.atlasLiveWeather=null;window.atlasActiveSession=null;window.atlasGoToCombo=null;window.atlasPreferredCombo=null;window.atlasAnglerProfile=null;
+  ['mWater','cWater','cSpot','cSpecies','cLure','cColor','cLearn'].forEach(id=>{const el=$(id);if(el)el.value=''});
+  window.FishWizzGearState?.invalidate?.();
+  try{window.__fwGuestDraftClear?.()}catch(e){}
+  const arsenal=$('arsenalCards'),tackle=$('tackleCards'),catches=$('recentCatches'),plans=$('planCards'),summary=$('planSummary'),combo=$('cCombo'),feedback=$('feedbackBox');
   if(arsenal)arsenal.innerHTML='<div class="card"><h3>Loading your Arsenal…</h3><p class="muted">Waiting for the signed-in account.</p></div>';
   if(tackle)tackle.innerHTML='<div class="card"><h3>Loading your Tackle Locker…</h3><p class="muted">Waiting for the signed-in account.</p></div>';
   if(catches)catches.innerHTML='Loading your fishing history…';
   if(plans)plans.innerHTML='';
-  if(summary)summary.innerHTML='';
+  if(summary)summary.innerHTML='<h2>Build a Mission</h2><p class="muted">Choose your exact fishing position in Map and load current conditions for the strongest Mission.</p>';
   if(combo)combo.innerHTML='<option value="">Select combo</option>';
+  if(feedback)feedback.hidden=true;
   document.dispatchEvent(new CustomEvent('atlas:account-state-cleared'));
  }
  // src/runtime/index.js calls window.atlasClearPersonalState?.() on every
  // real Supabase auth-state transition (Google OAuth switches, session-expiry
- // sign-outs, everything -- not just clicks on #signIn/#signOut/#signUp).
- // Without this assignment that call is a silent no-op and this file's own
- // clearing logic only ever runs for the narrow email-form click paths below.
+ // sign-outs, everything), from inside applySession() -- the one authoritative
+ // place a session is ever applied (P0, "one authoritative authentication
+ // initialization state"). Without this assignment that call is a silent
+ // no-op.
  window.atlasClearPersonalState = clearPersonalState;
- function currentUser(){try{return session?.user?.id||null}catch(e){console.error('FishWizz: could not read the current session',e);return null}}
- function syncUser(){const id=currentUser(),prev=sessionStorage.getItem('atlas:active_user');const changed=id!==prev;if(id&&prev&&prev!==id)clearPersonalState();if(id)sessionStorage.setItem('atlas:active_user',id);else sessionStorage.removeItem('atlas:active_user');if(changed)document.dispatchEvent(new CustomEvent('atlas:account-changed',{detail:{user_id:id,previous_user_id:prev||null}}))}
- function bind(){
-  $('signOut')?.addEventListener('click',()=>{clearPersonalState();sessionStorage.removeItem('atlas:active_user');setTimeout(syncUser,100)});
-  $('signIn')?.addEventListener('click',()=>{clearPersonalState();setTimeout(syncUser,700);setTimeout(syncUser,1400)});
-  $('signUp')?.addEventListener('click',()=>{clearPersonalState();setTimeout(syncUser,700);setTimeout(syncUser,1400)});
-  syncUser();setTimeout(syncUser,700);setTimeout(syncUser,1800);
- }
- document.readyState==='loading'?document.addEventListener('DOMContentLoaded',bind):bind();
+ // P0 reopened (staging QA, 2026-08-27): this file used to ALSO run its own,
+ // completely separate account-change detector -- syncUser(), polled via
+ // setTimeout(700/1400/1800ms) off a sessionStorage flag, plus its OWN
+ // #signIn/#signUp/#signOut click listeners that fired clearPersonalState()
+ // and dispatched a SECOND, independently-timed atlas:account-changed for
+ // the exact same real transition src/runtime/index.js's applySession()
+ // already handles authoritatively (and atomically, since the P0-1
+ // reopening: applySession() is now called directly from the sign-in click
+ // handler with the session Supabase's own response already contains, not
+ // raced against a delayed poll). Two uncoordinated "is the account
+ // different now" detectors running on two different clocks, each capable
+ // of independently dispatching atlas:account-changed and calling
+ // clearPersonalState(), is close to the textbook definition of what "one
+ // authoritative authentication initialization state" (P0 instruction 1)
+ // rules out -- and this dispatch never carried the generation/initial
+ // fields applySession()'s real dispatch does, so anything relying on those
+ // for stale-response cancellation (gear-state.js) could not trust it.
+ // Removed entirely; clearPersonalState() (still called from the one real
+ // place) is everything this file needs to provide now.
 })();

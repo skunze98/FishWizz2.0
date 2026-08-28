@@ -17,6 +17,7 @@ import { initSentry } from './sentry.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js';
 import { makeApi } from './api.js';
 import { initTurnstile, captchaToken, resetTurnstile } from './turnstile.js';
+import { createAuthState } from './auth-state.js';
 
 // First real line of the module: monitoring should be recording before
 // anything else here has a chance to throw. No-ops with no VITE_SENTRY_DSN.
@@ -45,6 +46,31 @@ const LEGACY = [
   // app.js -- it has no dependency on anything else in this list -- so
   // every consumer, boot-time or interaction-time, can rely on it.
   '/field-guard.js',
+  // P0 (staging QA, 2026-08-27): the one authoritative length/weight
+  // validation for catches -- shared by catch-pro.js (creation),
+  // catch-history-pro.js (editing and personal-best ranking), and
+  // personal-hub.js (personal-best display). Early and eager for the same
+  // reason as field-guard.js just above: every consumer needs it available
+  // the moment a user can possibly interact with a measurement field or
+  // catch list, and none of them should have to guard against it not having
+  // loaded yet.
+  '/measurement-guard.js',
+  // P2 ("enforce recommendation taxonomy compatibility" -- staging QA,
+  // 2026-08-27): the one authoritative tackle-category classification,
+  // shared by mission-inventory-fit.js and mentor-pro.js so a hook or
+  // sinker can never be labeled "Owned lure" by one of them while the other
+  // gets it right -- see that file's own header for the full root cause.
+  '/tackle-taxonomy.js',
+  // P1 (staging QA, 2026-08-27): the one authoritative angler-profile fetch,
+  // loaded here in the always-eager LEGACY chain rather than only inside
+  // pwa.js's lazy `account` page group -- see that file's own header for why
+  // a profile fetch that only ever happened on the Account page is what
+  // caused a saved nickname to disappear from the Mission-page greeting
+  // after a refresh that landed back on Mission. Placed before today.js
+  // (loaded lazily, later, via pwa.js's `mission` group) so
+  // window.FishWizzProfileState already exists by the time today.js's own
+  // snapshot() calls it.
+  '/profile-state.js',
   // P1-5 reopened: the one authoritative gear (combos/rods/reels/lures)
   // fetch + cache, replacing three separate ones that used to each hold
   // their own answer to "how much gear does this account have" and
@@ -85,6 +111,74 @@ let _ready = false;
 const _queue = [];
 const afterLegacy = fn => (_ready ? fn() : _queue.push(fn));
 
+// P0 (staging QA, 2026-08-27): "signed-in content rendered together with
+// WELCOME BACK / Log In / Create Account; navigation broken until refresh."
+// Root cause -- confirmed by tracing the actual sequence, not guessed: the
+// sign-in click handler declared success and navigated to Mission the
+// instant supabase.auth.signInWithPassword()'s own promise resolved, without
+// waiting for the SEPARATE onAuthStateChange callback that is the only thing
+// which actually updates `_session` (Supabase JS does not guarantee that
+// callback fires before signInWithPassword()'s promise settles in the
+// caller -- it's a well-documented, real gap, not a timing coincidence).
+// Every other session-dependent read in the app (fishwizz-shell-v2.js's
+// WELCOME BACK banner, missionGuard's sign-in check, etc) reads `session`
+// live, so during that gap they still saw signed-out state on a page that
+// had already navigated as if signed in.
+//
+// applySession() is now the ONE place `_session` is ever written, called
+// both by onAuthStateChange (the authoritative source) and directly by the
+// sign-in/sign-up handlers below with the session Supabase's own response
+// already contains -- so the UI is atomically correct the instant the
+// click handler's own await resolves, not on a best-effort race with a
+// second async callback. It's idempotent: applying the same user id twice
+// (the click handler's direct call, then onAuthStateChange's own later
+// firing for the same sign-in) is a no-op the second time, not a double
+// clear-and-dispatch.
+//
+// The actual decision logic (is this a real account change, what generation
+// does it get, was this the very first session established) lives in
+// auth-state.js, not here -- pulled out into its own dependency-free module
+// specifically so it has a real, direct Node unit test
+// (scripts/test-auth-state.mjs) instead of only ever being exercised through
+// this file's Leaflet/CSS imports, which plain Node can't load at all. This
+// wrapper only adds the DOM/legacy-chain side effects (syncAuthUi,
+// atlas:account-changed, clearing the previous account's state) that are
+// specific to running inside the actual app.
+//
+// generation increments only on a REAL account change (never on the very
+// first session establishment, and never on a same-account re-application)
+// and is exposed via window.fishwizzAuth.generation() so any in-flight
+// request can be tagged and checked against it before being applied -- a
+// stale Account A response arriving after Account B is active carries an
+// old generation and is discarded, per the P0 instruction to cancel/ignore
+// stale responses by account id + generation.
+const authState = createAuthState({
+  onChange(s, detail) {
+    afterLegacy(() => {
+      syncAuthUi(s);
+      if (detail.previous_user_id) window.atlasClearPersonalState?.();
+      // Same name and same detail shape account-isolation.js's own version
+      // already used -- 13+ modules listen for this and are not being
+      // changed. `initial: true` on the very first session establishment
+      // (a fresh page load restoring an existing session, or a first-ever
+      // sign-in with nothing to switch away from) lets a listener that only
+      // cares about REAL account switches -- as opposed to "a session now
+      // exists, go load" -- tell the two apart explicitly, rather than
+      // inferring it from previous_user_id being null.
+      document.dispatchEvent(new CustomEvent('atlas:account-changed', { detail }));
+    });
+  },
+  onSameAccount(s) {
+    afterLegacy(() => syncAuthUi(s));
+  },
+});
+
+function applySession(s) {
+  const result = authState.apply(s);
+  _session = s;
+  return result;
+}
+
 // --- globals the legacy scripts expect --------------------------------------
 
 window.SUPABASE_URL = SUPABASE_URL;
@@ -113,7 +207,11 @@ Object.defineProperty(window, 'session', {
   get() { return _session; },
   // account-polish.js's deleteAccount() assigns `session=null` directly. That
   // now lands here and performs a real sign-out instead of desyncing the UI.
-  set(v) { if (v == null && _session) supabase.auth.signOut().catch(() => {}); },
+  // Also applied atomically (not just requested) so the UI reflects
+  // signed-out state immediately, the same guarantee sign-in gets below,
+  // rather than waiting on Supabase's own signOut() round trip and the
+  // onAuthStateChange callback it eventually triggers.
+  set(v) { if (v == null && _session) { applySession(null); supabase.auth.signOut().catch(() => {}); } },
 });
 
 window.api = makeApi(supabase, () => _session);
@@ -132,6 +230,12 @@ const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
 window.fishwizzAuth = {
   client: supabase,
   ready: authReady,
+  // The current account-change generation. Any long-running fetch that
+  // cares about staleness should read this before starting and compare
+  // again before applying its result -- see gear-state.js's own use of this
+  // for the pattern (P0 instruction 5: cancel/ignore a stale response by
+  // account id + generation).
+  generation: () => authState.generation,
   token: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
   // captchaToken() is undefined until both halves of Turnstile exist (a site
   // key here, Attack Protection turned on in Supabase) -- Supabase ignores
@@ -213,7 +317,8 @@ async function completeEmailConfirmation() {
 // MutationObserver and drives the welcome banner off them.
 function syncAuthUi(s) {
   const el = id => document.getElementById(id);
-  const out = el('signedOut'), inn = el('signedIn'), who = el('who');
+  const checking = el('authChecking'), out = el('signedOut'), inn = el('signedIn'), who = el('who');
+  if (checking) checking.hidden = true;
   if (out) out.hidden = !!s;
   if (inn) inn.hidden = !s;
   if (who) who.textContent = s ? 'Signed in as ' + (s.user?.email || 'FishWizz angler') : 'Signed in';
@@ -223,27 +328,19 @@ function syncAuthUi(s) {
 // --- the authoritative auth event bus ---------------------------------------
 
 supabase.auth.onAuthStateChange((event, s) => {
-  const previous = _session?.user?.id ?? null;
-  _session = s;
+  const previousUid = _session?.user?.id ?? null;
+  const { changed } = applySession(s);
   const current = s?.user?.id ?? null;
 
   afterLegacy(() => {
-    syncAuthUi(s);
-
-    if (current !== previous) {
-      if (previous) window.atlasClearPersonalState?.();
-      // Same name and same detail shape as account-isolation.js's version --
-      // 13 modules listen for this and none of them are being changed.
-      document.dispatchEvent(new CustomEvent('atlas:account-changed', {
-        detail: { user_id: current, previous_user_id: previous },
-      }));
-    }
-
     // Never reload on TOKEN_REFRESHED: it now fires roughly hourly, forever.
-    if (s && current !== previous && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+    // Only load on a real change -- a redundant firing for a session the
+    // sign-in handler already applied (changed:false here) must not
+    // re-trigger loadCore, which would re-fetch everything a second time.
+    if (s && changed && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
       window.loadCore?.().catch(e => window.stat?.(e.message, 'err'));
     }
-    if (event === 'SIGNED_OUT') window.atlasClearPersonalState?.();
+    if (event === 'SIGNED_OUT' && current !== previousUid) window.atlasClearPersonalState?.();
   });
 });
 
@@ -288,6 +385,21 @@ initTurnstile();
     // window.session is authoritative from this point on, whichever branch
     // ran. Modules that were blocking on "is there a session yet" can stop.
     resolveAuthReady();
+    // P0 (staging QA): "do not render authenticated or signed-out content
+    // until the initial session check resolves". syncAuthUi() itself is
+    // gated behind afterLegacy(), which queues until the ENTIRE ~17-script
+    // LEGACY chain has finished loading -- seconds after the auth check
+    // above has actually resolved. #authChecking (a neutral third state,
+    // shown by default in index.html alongside #signedOut/#signedIn both
+    // starting hidden) is revealed/hidden here instead, tied directly to
+    // the real resolution point rather than to LEGACY's own unrelated
+    // timeline. A full syncAuthUi() still runs later, once LEGACY finishes
+    // -- this is only about not showing the WRONG one of the two panels in
+    // the meantime, not a replacement for it.
+    const out = document.getElementById('signedOut'), inn = document.getElementById('signedIn');
+    if (document.getElementById('authChecking')) document.getElementById('authChecking').hidden = true;
+    if (out) out.hidden = !!_session;
+    if (inn) inn.hidden = !_session;
   }
 
   for (const src of LEGACY) {
@@ -440,7 +552,18 @@ function rebindAuthControls() {
     if (!password()) { say('err', 'Enter your password', ''); return {}; }
     const r = await window.fishwizzAuth.signIn(email(), password());
     resetTurnstile();   // the token just submitted is spent either way
-    if (!r.error) { clearSay(); window.showPage?.('mission'); window.stat?.('Signed in.', 'ok'); }
+    if (!r.error && r.data?.session) {
+      // Apply the session Supabase's own response already contains, right
+      // here, instead of waiting for the separate onAuthStateChange callback
+      // -- that race (this click handler declaring success and navigating
+      // before the callback had actually run) is the real cause of "signed-
+      // in content next to WELCOME BACK/Log In/Create Account, navigation
+      // broken until refresh". By the time showPage('mission') below runs,
+      // every session-dependent read in the app is already correct.
+      const { changed } = applySession(r.data.session);
+      if (changed) await window.loadCore?.().catch(e => window.stat?.(e.message, 'err'));
+      clearSay(); window.showPage?.('mission'); window.stat?.('Signed in.', 'ok');
+    }
     return r;
   }, 'signIn', 'Signing in…');
 
@@ -458,6 +581,9 @@ function rebindAuthControls() {
     resetTurnstile();   // the token just submitted is spent either way
     if (!r.error) {
       if (r.data?.session) {
+        // Same atomic-apply as signIn above.
+        const { changed } = applySession(r.data.session);
+        if (changed) await window.loadCore?.().catch(e => window.stat?.(e.message, 'err'));
         clearSay();
         window.showPage?.('mission');
         window.stat?.('Account ready.', 'ok');
@@ -476,7 +602,7 @@ function rebindAuthControls() {
   const signOut = el('signOut');
   if (signOut) signOut.onclick = attempt(async () => {
     const r = await window.fishwizzAuth.signOut();
-    if (!r.error) { clearSay(); window.stat?.('Signed out.', ''); }
+    if (!r.error) { applySession(null); clearSay(); window.stat?.('Signed out.', ''); }
     return r;
   }, 'signOut');
 
