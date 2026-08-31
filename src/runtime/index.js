@@ -101,6 +101,23 @@ const LEGACY = [
   '/patch.js',
   '/mission-inventory-fit.js',
   '/mission-v3.js',
+  // Approved-research integration (isolated-workspace development, checkpoint
+  // approved-2026-08-30). All four are FEATURE-FLAGGED OFF BY DEFAULT
+  // (window.FishWizzApprovedResearchFlag.isEnabled() -- see that file) and,
+  // while disabled, do nothing observable: no RPC call, no DOM write, no
+  // effect beyond the flag-change/mission-built listeners themselves being
+  // registered. Placed after mission-v3.js (which fires
+  // 'atlas:mission-built', the event approved-research-bridge.js listens
+  // for) and after tackle-taxonomy.js/mission-inventory-fit.js (which its
+  // gear-fit check reads via window.FishWizzTackleTaxonomy /
+  // window.FishWizzMissionInventory) so every global it depends on already
+  // exists. Load order among these four matters: the flag, taxonomy map,
+  // and evidence badge are pure data/lookup modules the bridge reads from,
+  // so the bridge loads last.
+  '/approved-research-flag.js',
+  '/species-taxonomy-map.js',
+  '/approved-research-evidence-badge.js',
+  '/approved-research-bridge.js',
   '/map.js',
   // P0-2: after mission-v3.js/map.js so the events and globals it listens
   // for (atlas:fishing-position, atlas:water-selected, atlas:mission-built,
