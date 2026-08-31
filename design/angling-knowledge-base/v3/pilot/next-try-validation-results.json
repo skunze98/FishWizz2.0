@@ -1,0 +1,23 @@
+[
+  {
+    "from": "bbe350b0-8ff7-4530-9dfe-d986123d7463",
+    "to": "15b0a7f8-108d-4b73-af4a-e8854e5fa861",
+    "fromSlug": "crawler-harness-troll",
+    "toSlug": "slip-sinker-livebait-rig",
+    "pass": true,
+    "checks": {
+      "sameSpecies": true,
+      "compatiblePlatform": true,
+      "compatibleWaterEnv": true,
+      "depthOverlap": true,
+      "tempOverlap": true,
+      "presentationDiffers": true,
+      "intensityTierDiffers": true,
+      "environmentApplicabilityOverlap": true,
+      "hasFailureHypothesis": true,
+      "hasResponseRationale": true,
+      "notJustClosestMatch": true,
+      "noteIsSubstantive": true
+    }
+  }
+]

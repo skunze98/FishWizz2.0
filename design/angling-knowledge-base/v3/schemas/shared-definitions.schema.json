@@ -10,8 +10,14 @@
 
     "record_status_enum": { "enum": ["draft", "reviewed", "approved", "published", "retired", "superseded"] },
     "reviewer_status_enum": { "enum": ["unreviewed", "reviewer_confirmed", "reviewer_flagged"] },
-    "evidence_type_enum": { "enum": ["primary_official", "peer_reviewed", "expert_consensus", "manufacturer_guidance", "anecdotal", "expert_synthesis"] },
-    "confidence_enum": { "enum": ["established", "expert_consensus", "anecdotal", "estimated"] },
+    "evidence_type_enum": { "enum": ["official_guidance", "peer_review_supported", "independently_corroborated", "manufacturer_guidance", "expert_synthesis", "anecdotal"],
+      "description": "gate-5 remediation fix (supersedes the gate-4 vocabulary): a CLAIM's own evidence type. 'official_guidance' = one authoritative agency states this directly (was wrongly folded into 'expert_consensus' before -- the exact defect this pass corrects: 'a single authoritative DNR source is official guidance, not expert consensus'). 'independently_corroborated' = this specific claim's derivation genuinely draws on >=2 sources from DIFFERENT organizations (checked by the import validator's areSourcesIndependent(), never by claim count alone). 'peer_review_supported' = a peer-reviewed journal article. 'manufacturer_guidance' = a manufacturer source -- valid ONLY for product specifications, never as evidence a manufacturer's technique is superior (enforced by the import validator, see validate-independence.mjs). 'expert_synthesis' = a reasoned, undersourced inference. 'anecdotal' = a single non-institutional/practitioner claim." },
+    "confidence_enum": { "enum": ["peer_review_supported", "independently_corroborated", "official_guidance", "expert_synthesis", "anecdotal", "estimated", "unsupported"],
+      "description": "gate-5 remediation fix (supersedes the gate-4 5-tier vocabulary): a TACTIC/PROVISION's overall confidence ceiling, ordered strongest-to-weakest. 'independently_corroborated' (renamed from the misused 'expert_consensus') requires >=2 claims from GENUINELY DIFFERENT organizations on the SAME decision-critical field -- same webpage/organization/parent organization/republished article does not qualify, checked programmatically, never asserted. 'official_guidance' sits BELOW independently_corroborated: a single authoritative agency (e.g. one MN DNR page) is real, citable evidence, but is not consensus. 'unsupported' means excluded from normal recommendation ranking." },
+    "readiness_enum": { "enum": ["ready_for_human_review", "research_incomplete", "blocked_by_conflicting_evidence", "blocked_by_safety_gap", "blocked_by_regulation_gap"],
+      "description": "gate-5 addition: a tactic-level readiness gate, SEPARATE from confidence. Confidence describes how strong the evidence is FOR WHAT IS ACTUALLY SOURCED; readiness separately asks whether every decision-critical field is covered at all. A tactic cannot be ready_for_human_review while any decision-critical field (see the fixed list in pilot/decision-critical-fields.mjs) is still an unsupported_gap. Computed by the import validator, not hand-set." },
+    "evidence_status_enum": { "enum": ["externally_sourced", "derived_synthesis", "unsupported_gap"],
+      "description": "gate-4 remediation addition: separates WHAT KIND of evidence a claim is from the free-text evidence_type label that was previously doing double duty. 'externally_sourced' = a real, independently fetched/published source directly supports this exact field. 'derived_synthesis' = a reasoned combination of >=1 externally_sourced claims, never invented from nothing, carrying its own derivation_explanation and derived_from_claim_ids, confidence-capped by its weakest input. 'unsupported_gap' = an explicit, honest admission that no real evidence exists for this field -- it still occupies the field_path slot (so the gap is visible and trackable) but must NEVER count toward evidence coverage, confidence, ranking eligibility, or publication readiness. Replaces the gate-3 pattern where an auto-generated expert_synthesis claim silently counted as 'coverage'." },
     "geographic_applicability_enum": { "enum": ["MN", "WI", "MN_WI", "great_lakes_only", "national"] },
 
     "platform_enum": { "enum": ["shore", "dock", "wading", "boat", "kayak", "canoe", "ice"],
@@ -34,7 +40,27 @@
       "description": "Anglers cannot directly measure DO. This is an inferred PROXY only -- populated from documented indicators (under-ice duration + snow cover, algae bloom presence, known winterkill-prone water) never a raw sensor reading. The proxy basis must be stated in the tactic/claim text wherever this field is used as anything other than unconstrained." },
     "observed_fish_activity_enum": { "enum": ["active", "neutral", "inactive"] },
     "time_of_day_enum": { "enum": ["dawn", "morning", "midday", "afternoon", "dusk", "night"] },
-    "bait_method_tag_enum": { "enum": ["live_bait", "artificial_only", "cut_bait", "prepared_bait", "fly", "trolling", "still_fishing", "casting", "jigging"] },
+    "bait_component_enum": { "enum": ["artificial_lure", "soft_plastic", "live_minnow", "live_leech", "live_nightcrawler", "live_other", "dead_or_cut_bait", "preserved_bait"],
+      "description": "gate-4 remediation: the ATOMIC food/lure items a presentation actually puts in the water. Replaces the old bait_method_tag_enum's conflation of composition (live_bait/artificial_only/cut_bait/prepared_bait/fly) with method (trolling/still_fishing/casting/jigging)." },
+    "bait_composition_mode_enum": { "enum": ["artificial_only", "live_bait_only", "dead_or_cut_bait_only", "preserved_bait_only", "hybrid_bait_and_artificial"],
+      "description": "gate-4 remediation: a single, mutually-exclusive declaration of what kind of presentation this is, replacing the old bait_method_tags array where a tactic could carry BOTH 'artificial_only' and 'live_bait' simultaneously with no way to tell which was authoritative for hard-filtering. 'hybrid_bait_and_artificial' is an honest, explicit third category (e.g. a jig that can be fished bare or minnow-tipped) -- it is NOT artificial_only-safe and a strict artificial_only user constraint must exclude it, since the recorded rigging still contemplates real bait." },
+    "bait_composition": { "type": "object", "additionalProperties": false,
+      "required": ["mode", "components"],
+      "properties": {
+        "mode": { "$ref": "#/$defs/bait_composition_mode_enum" },
+        "components": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/bait_component_enum" } }
+      },
+      "allOf": [
+        { "if": { "properties": { "mode": { "const": "artificial_only" } } }, "then": { "properties": { "components": { "items": { "enum": ["artificial_lure", "soft_plastic"] } } } } },
+        { "if": { "properties": { "mode": { "const": "live_bait_only" } } }, "then": { "properties": { "components": { "items": { "enum": ["live_minnow", "live_leech", "live_nightcrawler", "live_other"] } } } } },
+        { "if": { "properties": { "mode": { "const": "dead_or_cut_bait_only" } } }, "then": { "properties": { "components": { "items": { "const": "dead_or_cut_bait" } } } } },
+        { "if": { "properties": { "mode": { "const": "preserved_bait_only" } } }, "then": { "properties": { "components": { "items": { "const": "preserved_bait" } } } } },
+        { "if": { "properties": { "mode": { "const": "hybrid_bait_and_artificial" } } },
+          "then": { "properties": { "components": { "contains": { "const": "artificial_lure" }, "minItems": 2 } } } }
+      ]
+    },
+    "presentation_method_enum": { "enum": ["casting", "trolling", "still_fishing", "jigging", "vertical_jigging", "drifting", "fly"],
+      "description": "gate-4 remediation: the delivery METHOD, split out from bait_method_tag_enum's old composition/method conflation." },
     "casting_access_enum": { "enum": ["open", "limited", "tight"] },
 
     "rod_power_enum": { "enum": ["ultralight", "light", "medium_light", "medium", "medium_heavy", "heavy", "specialized_musky", "specialized_sturgeon"] },

@@ -65,9 +65,9 @@ const species = {
 
 const sourceId = '2b6c9d10-4a2e-4b8f-9d3a-6e7f8091a2b3';
 const source = {
-  id: sourceId, title: 'How to catch a walleye', organization: 'Minnesota DNR',
+  id: sourceId, title: 'How to catch a walleye', organization: 'Minnesota DNR', parent_organization: null,
   url: 'https://www.dnr.state.mn.us/gofishing/how-catch-walleye.html',
-  publication_date: null, access_date: '2026-08-28', source_type: 'primary_official', geographic_relevance: 'MN',
+  publication_date: null, access_date: '2026-08-28', source_type: 'official_guidance', geographic_relevance: 'MN',
   record_status: 'published', content_fingerprint: fp({ url: 'https://www.dnr.state.mn.us/gofishing/how-catch-walleye.html' }),
   created_at: '2026-08-28T00:00:00Z', updated_at: '2026-08-28T00:00:00Z', published_at: '2026-08-28T00:00:00Z',
   schema_version: '3.0.0', content_version: 1,
@@ -92,8 +92,9 @@ const claimIds = {
 };
 function claim(id, fieldPath, text, status = 'reviewer_confirmed') {
   return {
-    id, source_id: sourceId, subject_table: 'tactic', subject_id: tacticAId, field_path: fieldPath,
-    paraphrased_claim: text, source_location: '"Summer" section', evidence_type: 'primary_official',
+    id, evidence_status: 'externally_sourced', source_id: sourceId, subject_table: 'tactic', subject_id: tacticAId, field_path: fieldPath,
+    paraphrased_claim: text, source_location: '"Summer" section', evidence_type: 'official_guidance',
+    derived_from_claim_ids: [], derivation_explanation: null,
     access_date: '2026-08-28', geographic_applicability: 'MN',
     reviewer_status: status, reviewer_id: status === 'reviewer_confirmed' ? reviewerId : null,
     reviewed_at: status === 'reviewer_confirmed' ? '2026-08-28T12:00:00Z' : null,
@@ -134,7 +135,8 @@ const tacticA = {
     line_test_lb: range(6, 10, 'lb'), leader: { material: 'fluorocarbon', length_in: range(24, 36, 'in') },
     lure_weight_oz: range(0.5, 1, 'oz'), hook_size: '1/0-3/0 octopus or circle',
   },
-  bait_method_tags: ['live_bait', 'still_fishing'],
+  bait_composition: { mode: 'live_bait_only', components: ['live_minnow', 'live_nightcrawler', 'live_leech'] },
+  presentation_method_tags: ['still_fishing'],
   retrieve: { speed: 'very_slow', cadence: 'slow drag along bottom, brief pauses', pause_seconds: range(3, 8, 's', 'general'),
     depth_control: 'lightest sinker that still maintains bottom contact', rod_position: 'tip low, feeding slack on the take' },
   rigging_instructions: 'Slip sinker on the mainline above a swivel, fluorocarbon leader to a hook baited with a minnow, nightcrawler, or leech.',
@@ -153,7 +155,8 @@ const tacticA = {
     { claim_id: claimIds.works, covers_field_path: 'works_when' },
     { claim_id: claimIds.fails, covers_field_path: 'fails_when' },
   ],
-  confidence: 'expert_consensus', geographic_applicability: 'MN_WI', verified_date: '2026-08-28',
+  confidence: 'official_guidance', readiness: 'research_incomplete', readiness_reason: 'Example record for schema validation only -- not run through the real readiness computation in pilot/generate-pilot.mjs.',
+  geographic_applicability: 'MN_WI', verified_date: '2026-08-28',
   alternatives: [{ related_tactic_id: tacticBId, relationship_type: 'next_try', note: 'Genuinely different seasonal pattern, not a same-conditions disagreement.' }],
   record_status: 'published', reviewed_by: reviewerId, reviewed_at: '2026-08-28T13:00:00Z',
   approved_by: reviewerId, approved_at: '2026-08-28T14:00:00Z', superseded_by: null,
@@ -182,7 +185,8 @@ tacticB.applies_when = conditionSet({
   current: con('constrained', 'none'), clarity: con('constrained', 'stained'), wind: con('constrained', 'moderate'), light: con('constrained', 'low'),
   barometric_pressure_trend: con('constrained', 'falling'), fishing_pressure: con('unconstrained'),
 });
-tacticB.bait_method_tags = ['artificial_only', 'casting', 'trolling'];
+tacticB.bait_composition = { mode: 'artificial_only', components: ['artificial_lure'] };
+tacticB.presentation_method_tags = ['casting', 'trolling'];
 tacticB.works_when = 'Water is 48-62F in early-mid fall as walleye return to shoreline structure; low light and light chop improve it further.';
 tacticB.fails_when = 'Bright, calm, high-clarity conditions in the same season, where the same shallow presentation becomes more visible and less effective.';
 tacticB.alternatives = [{ related_tactic_id: tacticAId, relationship_type: 'next_try', note: 'If the shallow fall pattern is unproductive, the deeper summer approach may still be holding fish that have not moved shallow yet.' }];
@@ -192,16 +196,17 @@ tacticB.evidence = tacticB.evidence.map((e, i) => ({ ...e, claim_id: claimsB[Mat
 
 const provisionId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 const regClaimId = '55555555-5555-4555-8555-555555555555';
-const regClaim = { id: regClaimId, source_id: regSourceId, subject_table: 'regulation_provision', subject_id: provisionId,
+const regClaim = { id: regClaimId, evidence_status: 'externally_sourced', source_id: regSourceId, subject_table: 'regulation_provision', subject_id: provisionId,
   field_path: 'value', paraphrased_claim: 'Anglers may harvest walleye 17 inches or greater, only one over 20 inches in possession.',
-  source_location: 'DNR news release body', evidence_type: 'primary_official', access_date: '2026-08-28', geographic_applicability: 'MN',
+  source_location: 'DNR news release body', evidence_type: 'official_guidance', derived_from_claim_ids: [], derivation_explanation: null,
+  access_date: '2026-08-28', geographic_applicability: 'MN',
   reviewer_status: 'reviewer_confirmed', reviewer_id: reviewerId, reviewed_at: '2026-08-28T15:00:00Z', created_at: '2026-08-28T00:00:00Z' };
 
 const provision = {
   id: provisionId, provision_slug: 'mn.named_water.mille-lacs-lake.walleye.daily_limit.2026',
   content_fingerprint: fp({ scope: 'mille-lacs', type: 'daily_limit', year: 2026 }),
   provision_type: 'daily_limit',
-  geographic_scope: { type: 'named_water', waterbody_id: 'dddddddd-1111-4222-8333-444444444444', waterbody_name: 'Mille Lacs Lake',
+  geographic_scope: { type: 'named_water', waterbody_id: 'a96c6a4c-19ed-4455-a091-6233f688d336', waterbody_name: 'Mille Lacs Lake', // real FishWizz waterbodies.id (gate-4 fix -- see supabase/schema/waterbodies-data.sql)
     district_code: null, great_lake_name: null, tributary_of: null, boundary_jurisdictions: null, tribal_territory: null },
   temporal_scope: { type: 'fixed_interval', fixed_interval: { start: '2026-05-09', end: null }, annual_recurrence: null },
   species: [{ species_id: speciesId }], combined_with_species_ids: [],
@@ -237,9 +242,10 @@ validate('regulation', sizeProvision, 'regulation_provision (size_rule, SAME wat
 // ========================= parity test: every JSON field lands somewhere =========================
 section('PARITY TEST: every field in the tactic JSON payload is either a direct DDL column, a documented junction expansion, or explicitly discarded with a stated reason');
 {
-  const ddlColumns = new Set(['id','content_fingerprint','presentation_id','applies_when','equipment','bait_method_tags',
+  const ddlColumns = new Set(['id','content_fingerprint','presentation_id','applies_when','equipment','bait_composition','presentation_method_tags',
     'retrieve','rigging_instructions','bite_detection','hookset_fight','works_when','fails_when','diagnostic_signals',
     'casting_access_required','environment_applicability','conservation_notes','confidence','geographic_applicability',
+    'confidence','readiness','readiness_reason',
     'verified_date','record_status','reviewed_by','reviewed_at','approved_by','approved_at','superseded_by',
     'created_at','updated_at','published_at','schema_version','content_version']);
   const junctionExpansions = { species: 'tactic_species (one row per array entry)', evidence: 'tactic_claim (one row per array entry)', alternatives: 'tactic_relationship (one row per array entry)' };

@@ -4,257 +4,242 @@ Reference scorer version: pilot-reference-0.1.0 (design-only, not the production
 ==============================================================================
 1. Shore, walleye, after a MN cold front (water temp unknown, no live bait)
   scorer_version=pilot-reference-0.1.0  platform=shore  constraints=["no_live_bait"]
-  1 candidate(s) survived hard filters, 14 excluded outright.
+  1 candidate(s) survived hard filters, 14 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
   #1 [score 0.000] Post-spawn, low light, shore-accessible points in stained water where ...
       matched: (none)
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, clarity:mission_missing, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:excluded by no_live_bait constraint (tactic uses live/cut bait) | 6e5c13d6:excluded by no_live_bait constraint (tactic uses live/cut bait) | b00483eb:platform 'shore' is not_applicable for this tactic (+11 more)
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  excluded: 71231f0a:excluded by no_live_bait constraint (bait_composition includes a live component) | 9e0cb3fa:excluded by no_live_bait constraint (bait_composition includes a live component) | 2b3f2314:platform 'shore' is not_applicable for this tactic (+11 more)
 
 ==============================================================================
 2. Boat, smallmouth-style clear-lake summer conditions applied to walleye (72F, calm, bright, clear)
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=[]
-  7 candidate(s) survived hard filters, 8 excluded outright.
-  #1 [score 0.311] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
-      matched: clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
-      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.207] Turbid/stained water where flash and vibration matter more than visual...
+  7 candidate(s) survived hard filters, 8 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.244] Turbid/stained water where flash and vibration matter more than visual...
       matched: clarity=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:no_constraint, cover:no_constraint, substrate:no_constraint, current:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.201] Clear water, calm conditions, where a quiet low-profile platform and f...
+      confidence=peer_review_supported (weight 1)  sources: 
+  #2 [score 0.238] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
+      matched: clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
+      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
+      confidence=official_guidance (weight 0.65)  sources: How to catch a walleye; Barotrauma; 
+  #3 [score 0.183] Clear water, calm conditions, where a quiet low-profile platform and f...
       matched: clarity=1.00, wind=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: fd12924e:platform 'boat' is not_applicable for this tactic | 7069492c:platform 'boat' is not_applicable for this tactic | 5eaf0882:platform 'boat' is not_applicable for this tactic (+5 more)
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  excluded: 8b4f4eca:platform 'boat' is not_applicable for this tactic | e3f78e66:platform 'boat' is not_applicable for this tactic | 10ad1852:platform 'boat' is not_applicable for this tactic (+5 more)
 
 ==============================================================================
 3. Kayak, strong wind
   scorer_version=pilot-reference-0.1.0  platform=kayak  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.000] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
-      matched: (none)
-      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.000] Early-mid fall as walleye return to shoreline structure; low light/cho...
-      matched: (none)
-      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:mission_missing, substrate:mission_missing, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.000] Clear water, calm conditions, where a quiet low-profile platform and f...
-      matched: wind=0.00
-      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, clarity:mission_missing, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:platform 'kayak' is not_applicable for this tactic | fd12924e:platform 'kayak' is not_applicable for this tactic | 7069492c:platform 'kayak' is not_applicable for this tactic (+9 more)
+  0 candidate(s) survived hard filters, 12 excluded outright, 3 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  CAUTION: kayak/canoe under high wind: no safety_advisory data exists to confirm or rule out this tactic (see design/angling-knowledge-base/v3/safety/README.md) -- returned as insufficient_safety_data, not scored/ranked as a confident recommendation | kayak/canoe under high wind: no safety_advisory data exists to confirm or rule out this tactic (see design/angling-knowledge-base/v3/safety/README.md) -- returned as insufficient_safety_data, not scored/ranked as a confident recommendation | kayak/canoe under high wind: no safety_advisory data exists to confirm or rule out this tactic (see design/angling-knowledge-base/v3/safety/README.md) -- returned as insufficient_safety_data, not scored/ranked as a confident recommendation
+  excluded: 71231f0a:platform 'kayak' is not_applicable for this tactic | 8b4f4eca:platform 'kayak' is not_applicable for this tactic | e3f78e66:platform 'kayak' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 4. Ice, crappie-style low-oxygen midwinter conditions applied to walleye
   scorer_version=pilot-reference-0.1.0  platform=ice  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.134] Midwinter, clear water, over deep structure, when fish are actively re...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.159] Midwinter, clear water, over deep structure, when fish are actively re...
       matched: season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: Ice fishing for walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.134] Midwinter, clear water, when fish are neutral/inactive or have been pr...
+      confidence=official_guidance (weight 0.65)  sources: Ice fishing for walleye; ; A Look Under the Ice: Winter Lake Ecology
+  #2 [score 0.159] Midwinter, clear water, when fish are neutral/inactive or have been pr...
       matched: season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: Ice fishing for walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.098] Late ice, immediately after a front has passed, in a deep basin area w...
+      confidence=official_guidance (weight 0.65)  sources: Ice fishing for walleye; ; A Look Under the Ice: Winter Lake Ecology
+  #3 [score 0.159] Late ice, immediately after a front has passed, in a deep basin area w...
       matched: dissolved_oxygen_status=1.00, season.biological_stage=0.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:mission_missing, fishing_pressure:no_constraint, weather_front:mission_missing, water_level_trend:no_constraint, recent_precipitation:no_constraint, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=estimated (weight 0.4)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:platform 'ice' is not_applicable for this tactic | 6e5c13d6:platform 'ice' is not_applicable for this tactic | b00483eb:platform 'ice' is not_applicable for this tactic (+9 more)
+      confidence=official_guidance (weight 0.65)  sources: A Look Under the Ice: Winter Lake Ecology; ; Fish kills | Minnesota DNR
+  excluded: 71231f0a:platform 'ice' is not_applicable for this tactic | 9e0cb3fa:platform 'ice' is not_applicable for this tactic | 2b3f2314:platform 'ice' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 5. River, catfish-style rising water applied to sauger
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.518] Rising, turbid water after heavy rain, fish pushed to current-breaks o...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.305] Rising, turbid water after heavy rain, fish pushed to current-breaks o...
       matched: water_environment=1.00, current=1.00, clarity=1.00, water_level_trend=1.00, recent_precipitation=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.207] Fall river/tailwater staging, sauger holding in deep, turbid channel h...
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  #2 [score 0.244] Fall river/tailwater staging, sauger holding in deep, turbid channel h...
       matched: water_environment=1.00, current=0.00, clarity=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.104] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
+      confidence=peer_review_supported (weight 1)  sources: Minnesota Profile: Sauger (Sander canadensis); 
+  #3 [score 0.122] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
       matched: water_environment=1.00, current=0.00, clarity=0.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:species does not match | 6e5c13d6:species does not match | b00483eb:species does not match (+9 more)
+      confidence=peer_review_supported (weight 1)  sources: ; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  excluded: 71231f0a:species does not match | 9e0cb3fa:species does not match | 2b3f2314:species does not match (+9 more)
 
 ==============================================================================
 6. Boat, walleye, exact match for the mid-summer deep-structure tactic
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=[]
-  7 candidate(s) survived hard filters, 8 excluded outright.
-  #1 [score 0.622] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
-      matched: depth_ft=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
-      excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.415] Turbid/stained water where flash and vibration matter more than visual...
+  7 candidate(s) survived hard filters, 8 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.488] Turbid/stained water where flash and vibration matter more than visual...
       matched: depth_ft=1.00, current=1.00, clarity=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, structure:no_constraint, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.235] Clear water, calm conditions, where a quiet low-profile platform and f...
+      confidence=peer_review_supported (weight 1)  sources: 
+  #2 [score 0.476] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
+      matched: depth_ft=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
+      excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
+      confidence=official_guidance (weight 0.65)  sources: How to catch a walleye; Barotrauma; 
+  #3 [score 0.213] Clear water, calm conditions, where a quiet low-profile platform and f...
       matched: depth_ft=0.50, structure=0.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, wind:mission_missing, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: fd12924e:platform 'boat' is not_applicable for this tactic | 7069492c:platform 'boat' is not_applicable for this tactic | 5eaf0882:platform 'boat' is not_applicable for this tactic (+5 more)
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  excluded: 8b4f4eca:platform 'boat' is not_applicable for this tactic | e3f78e66:platform 'boat' is not_applicable for this tactic | 10ad1852:platform 'boat' is not_applicable for this tactic (+5 more)
 
 ==============================================================================
 7. Ice, walleye, midwinter clear/deep -- the GENUINE conflict scenario (aggressive spoon vs. deadstick)
   scorer_version=pilot-reference-0.1.0  platform=ice  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.402] Midwinter, clear water, over deep structure, when fish are actively re...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.476] Midwinter, clear water, over deep structure, when fish are actively re...
       matched: depth_ft=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: Ice fishing for walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.402] Midwinter, clear water, when fish are neutral/inactive or have been pr...
+      confidence=official_guidance (weight 0.65)  sources: Ice fishing for walleye; ; A Look Under the Ice: Winter Lake Ecology
+  #2 [score 0.476] Midwinter, clear water, when fish are neutral/inactive or have been pr...
       matched: depth_ft=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: Ice fishing for walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.098] Late ice, immediately after a front has passed, in a deep basin area w...
+      confidence=official_guidance (weight 0.65)  sources: Ice fishing for walleye; ; A Look Under the Ice: Winter Lake Ecology
+  #3 [score 0.159] Late ice, immediately after a front has passed, in a deep basin area w...
       matched: depth_ft=1.00, structure=0.00, season.biological_stage=0.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:mission_missing, fishing_pressure:no_constraint, weather_front:mission_missing, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:mission_missing, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=estimated (weight 0.4)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:platform 'ice' is not_applicable for this tactic | 6e5c13d6:platform 'ice' is not_applicable for this tactic | b00483eb:platform 'ice' is not_applicable for this tactic (+9 more)
+      confidence=official_guidance (weight 0.65)  sources: A Look Under the Ice: Winter Lake Ecology; ; Fish kills | Minnesota DNR
+  excluded: 71231f0a:platform 'ice' is not_applicable for this tactic | 9e0cb3fa:platform 'ice' is not_applicable for this tactic | 2b3f2314:platform 'ice' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 8. Dock, walleye, early summer low light near a drop-off
   scorer_version=pilot-reference-0.1.0  platform=dock  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.268] Low light (dawn/dusk), docks adjacent to a drop-off, early summer....
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.244] Low light (dawn/dusk), docks adjacent to a drop-off, early summer....
       matched: cover=1.00, light=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, substrate:no_constraint, current:mission_missing, clarity:no_constraint, wind:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.201] Stained water reduces the low-light requirement of the clear-water ver...
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  #2 [score 0.183] Stained water reduces the low-light requirement of the clear-water ver...
       matched: cover=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:no_constraint, substrate:no_constraint, current:no_constraint, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
+      confidence=expert_synthesis (weight 0.5)  sources: 
   #3 [score 0.032] Early spring, water still cold, walleye concentrated on shallow sand f...
       matched: season.biological_stage=0.00, season.water_temp_f=0.31
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 6e5c13d6:platform 'dock' is not_applicable for this tactic | b00483eb:platform 'dock' is not_applicable for this tactic | fd12924e:platform 'dock' is not_applicable for this tactic (+9 more)
+      confidence=independently_corroborated (weight 0.85)  sources: ; Walleye biology and identification; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  excluded: 9e0cb3fa:platform 'dock' is not_applicable for this tactic | 2b3f2314:platform 'dock' is not_applicable for this tactic | 8b4f4eca:platform 'dock' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 9. Shore, walleye, spring shallow sand flat, live bait allowed
   scorer_version=pilot-reference-0.1.0  platform=shore  constraints=[]
-  7 candidate(s) survived hard filters, 8 excluded outright.
+  7 candidate(s) survived hard filters, 8 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
   #1 [score 0.518] Early spring, water still cold, walleye concentrated on shallow sand f...
       matched: depth_ft=1.00, structure=1.00, substrate=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, current:mission_missing, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.311] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
+      confidence=independently_corroborated (weight 0.85)  sources: ; Walleye biology and identification; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  #2 [score 0.366] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
       matched: depth_ft=1.00, structure=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, substrate:no_constraint, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.235] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
+      confidence=peer_review_supported (weight 1)  sources: ; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  #3 [score 0.180] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
       matched: depth_ft=0.27, structure=1.00, substrate=1.00, season.biological_stage=0.00, season.water_temp_f=0.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, cover:no_constraint, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: b00483eb:platform 'shore' is not_applicable for this tactic | fd12924e:platform 'shore' is not_applicable for this tactic | 7069492c:platform 'shore' is not_applicable for this tactic (+5 more)
+      confidence=official_guidance (weight 0.65)  sources: How to catch a walleye; Barotrauma; 
+  excluded: 2b3f2314:platform 'shore' is not_applicable for this tactic | 8b4f4eca:platform 'shore' is not_applicable for this tactic | e3f78e66:platform 'shore' is not_applicable for this tactic (+5 more)
 
 ==============================================================================
 10. Boat, sauger, fall turbid river channel edge
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.622] Fall river/tailwater staging, sauger holding in deep, turbid channel h...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.732] Fall river/tailwater staging, sauger holding in deep, turbid channel h...
       matched: water_environment=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.415] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
+      confidence=peer_review_supported (weight 1)  sources: Minnesota Profile: Sauger (Sander canadensis); 
+  #2 [score 0.488] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
       matched: water_environment=1.00, structure=1.00, current=1.00, clarity=0.00, season.biological_stage=0.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.311] Rising, turbid water after heavy rain, fish pushed to current-breaks o...
+      confidence=peer_review_supported (weight 1)  sources: ; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  #3 [score 0.183] Rising, turbid water after heavy rain, fish pushed to current-breaks o...
       matched: water_environment=1.00, structure=1.00, current=0.00, clarity=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:mission_missing, recent_precipitation:mission_missing, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:species does not match | 6e5c13d6:species does not match | b00483eb:species does not match (+9 more)
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  excluded: 71231f0a:species does not match | 9e0cb3fa:species does not match | 2b3f2314:species does not match (+9 more)
 
 ==============================================================================
 11. Kayak, walleye, clear calm summer point (finesse-tactic match)
   scorer_version=pilot-reference-0.1.0  platform=kayak  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.335] Clear water, calm conditions, where a quiet low-profile platform and f...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.305] Clear water, calm conditions, where a quiet low-profile platform and f...
       matched: structure=1.00, clarity=1.00, wind=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.311] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  #2 [score 0.238] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
       matched: structure=0.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.141] Early-mid fall as walleye return to shoreline structure; low light/cho...
+      confidence=official_guidance (weight 0.65)  sources: How to catch a walleye; Barotrauma; 
+  #3 [score 0.166] Early-mid fall as walleye return to shoreline structure; low light/cho...
       matched: structure=1.00, clarity=0.00, season.biological_stage=0.00, season.water_temp_f=0.36
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, cover:mission_missing, substrate:mission_missing, current:mission_missing, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:platform 'kayak' is not_applicable for this tactic | fd12924e:platform 'kayak' is not_applicable for this tactic | 7069492c:platform 'kayak' is not_applicable for this tactic (+9 more)
+      confidence=peer_review_supported (weight 1)  sources: ; How to catch a walleye
+  excluded: 71231f0a:platform 'kayak' is not_applicable for this tactic | 8b4f4eca:platform 'kayak' is not_applicable for this tactic | e3f78e66:platform 'kayak' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 12. Boat, walleye, turbid water, artificial_only constraint
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=["artificial_only"]
-  2 candidate(s) survived hard filters, 13 excluded outright.
-  #1 [score 0.134] Clear water, calm conditions, where a quiet low-profile platform and f...
-      matched: clarity=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
-      excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, wind:mission_missing, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #2 [score 0.059] Early-mid fall as walleye return to shoreline structure; low light/cho...
+  1 candidate(s) survived hard filters, 14 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.070] Early-mid fall as walleye return to shoreline structure; low light/cho...
       matched: clarity=0.00, season.biological_stage=0.00, season.water_temp_f=0.57
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:mission_missing, substrate:mission_missing, current:mission_missing, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:excluded by artificial_only constraint | 6e5c13d6:excluded by artificial_only constraint | fd12924e:platform 'boat' is not_applicable for this tactic (+10 more)
+      confidence=peer_review_supported (weight 1)  sources: ; How to catch a walleye
+  excluded: 71231f0a:excluded by artificial_only constraint (bait_composition.mode is 'live_bait_only', not 'artificial_only' -- hybrid tactics are NOT artificial_only-safe since their recorded rigging still contemplates real bait) | 9e0cb3fa:excluded by artificial_only constraint (bait_composition.mode is 'live_bait_only', not 'artificial_only' -- hybrid tactics are NOT artificial_only-safe since their recorded rigging still contemplates real bait) | 8b4f4eca:platform 'boat' is not_applicable for this tactic,excluded by artificial_only constraint (bait_composition.mode is 'hybrid_bait_and_artificial', not 'artificial_only' -- hybrid tactics are NOT artificial_only-safe since their recorded rigging still contemplates real bait) (+11 more)
 
 ==============================================================================
 13. Wading, walleye/sauger, river pre-spawn current seam
   scorer_version=pilot-reference-0.1.0  platform=wading  constraints=[]
-  3 candidate(s) survived hard filters, 12 excluded outright.
-  #1 [score 0.622] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
+  3 candidate(s) survived hard filters, 12 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.732] Pre-spawn river/tributary staging, moderate current, walleye and sauge...
       matched: water_environment=1.00, structure=1.00, current=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
+      confidence=peer_review_supported (weight 1)  sources: ; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
   #2 [score 0.207] Early spring, water still cold, walleye concentrated on shallow sand f...
       matched: water_environment=0.00, structure=0.00, current=0.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:mission_missing, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  #3 [score 0.104] Post-spawn, low light, shore-accessible points in stained water where ...
+      confidence=independently_corroborated (weight 0.85)  sources: ; Walleye biology and identification; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
+  #3 [score 0.061] Post-spawn, low light, shore-accessible points in stained water where ...
       matched: water_environment=0.00, structure=0.00, clarity=1.00, season.biological_stage=0.00, season.water_temp_f=0.00
       excluded axes: platform:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 6e5c13d6:platform 'wading' is not_applicable for this tactic | b00483eb:platform 'wading' is not_applicable for this tactic | fd12924e:platform 'wading' is not_applicable for this tactic (+9 more)
+      confidence=expert_synthesis (weight 0.5)  sources: 
+  excluded: 9e0cb3fa:platform 'wading' is not_applicable for this tactic | 2b3f2314:platform 'wading' is not_applicable for this tactic | 8b4f4eca:platform 'wading' is not_applicable for this tactic (+9 more)
 
 ==============================================================================
 14. Ice, sauger, early ice near a river mouth
   scorer_version=pilot-reference-0.1.0  platform=ice  constraints=[]
-  1 candidate(s) survived hard filters, 14 excluded outright.
-  #1 [score 0.268] Early ice, sauger holding in stained basin areas near a river/tributar...
+  1 candidate(s) survived hard filters, 14 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
+  #1 [score 0.488] Early ice, sauger holding in stained basin areas near a river/tributar...
       matched: structure=1.00, clarity=1.00, season.biological_stage=1.00, season.water_temp_f=1.00
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, cover:no_constraint, substrate:no_constraint, current:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=anecdotal (weight 0.55)  sources: General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: 4e6336f2:platform 'ice' is not_applicable for this tactic,species does not match | 6e5c13d6:platform 'ice' is not_applicable for this tactic,species does not match | b00483eb:platform 'ice' is not_applicable for this tactic,species does not match (+11 more)
+      confidence=peer_review_supported (weight 1)  sources: ; A Look Under the Ice: Winter Lake Ecology
+  excluded: 71231f0a:platform 'ice' is not_applicable for this tactic,species does not match | 9e0cb3fa:platform 'ice' is not_applicable for this tactic,species does not match | 2b3f2314:platform 'ice' is not_applicable for this tactic,species does not match (+11 more)
 
 ==============================================================================
 15. No platform observed at all, walleye, only species known (tests all-missing behavior)
   scorer_version=pilot-reference-0.1.0  platform=boat  constraints=[]
-  7 candidate(s) survived hard filters, 8 excluded outright.
+  7 candidate(s) survived hard filters, 8 excluded outright, 0 returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).
   #1 [score 0.000] Early spring, water still cold, walleye concentrated on shallow sand f...
       matched: (none)
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, clarity:no_constraint, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
+      confidence=independently_corroborated (weight 0.85)  sources: ; Walleye biology and identification; Cross-publication convergent finding on jig lift-and-pause cadence (FishUSA cold-water jerkbait cadence guide and others)
   #2 [score 0.000] Mid-summer, warm stable water, fish holding on deep mid-lake structure...
       matched: (none)
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:no_constraint, substrate:mission_missing, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:no_constraint, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
+      confidence=official_guidance (weight 0.65)  sources: How to catch a walleye; Barotrauma; 
   #3 [score 0.000] Early-mid fall as walleye return to shoreline structure; low light/cho...
       matched: (none)
       excluded axes: platform:mission_missing, water_environment:mission_missing, depth_ft:mission_missing, structure:mission_missing, cover:mission_missing, substrate:mission_missing, current:mission_missing, clarity:mission_missing, wind:no_constraint, light:mission_missing, barometric_pressure_trend:no_constraint, fishing_pressure:no_constraint, weather_front:no_constraint, water_level_trend:no_constraint, recent_precipitation:no_constraint, dissolved_oxygen_status:not_applicable, observed_fish_activity:no_constraint, time_of_day:no_constraint
-      confidence=expert_consensus (weight 0.85)  sources: How to catch a walleye; General freshwater fisheries technique consensus (sauger current/turbidity preference; ice deadstick vs. aggressive-jig framing)
-  excluded: fd12924e:platform 'boat' is not_applicable for this tactic | 7069492c:platform 'boat' is not_applicable for this tactic | 5eaf0882:platform 'boat' is not_applicable for this tactic (+5 more)
+      confidence=peer_review_supported (weight 1)  sources: ; How to catch a walleye
+  excluded: 8b4f4eca:platform 'boat' is not_applicable for this tactic | e3f78e66:platform 'boat' is not_applicable for this tactic | 10ad1852:platform 'boat' is not_applicable for this tactic (+5 more)
 
 ==============================================================================
 CONFLICT CHECK -- scenario 7 (the genuine ice conflict)
   Both conflicting tactics present in ranked results: true
-  Aggressive spoon: rank present, score 0.402, confidence=anecdotal
-  Deadstick: rank present, score 0.402, confidence=anecdotal
+  Aggressive spoon: rank present, score 0.476, confidence=official_guidance
+  Deadstick: rank present, score 0.476, confidence=official_guidance
   conflicts_with note present and explains the disagreement: true
   note: "DNR's own ice-fishing-walleye page explicitly frames aggressive jigging-spoon action and a near-motionless minnow-head j..."

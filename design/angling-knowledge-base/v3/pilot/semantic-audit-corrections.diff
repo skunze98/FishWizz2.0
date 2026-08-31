@@ -1,0 +1,79 @@
+Proposed corrections identified by the semantic-quality audit (semantic-audit-report.md +
+semantic-audit-part2.md). NOT applied to pilot-data.json. Every record in pilot-data.json
+remains record_status: "draft" and every claim remains reviewer_status: "unreviewed",
+unchanged, per instruction. This file is the diff a human reviewer would apply, not an
+executed change.
+
+=== 1. Confidence field on 15 tactics (semantic-audit-report.md section 3) ===
+
+--- pilot-data.json (tactics[].confidence)
++++ corrected
+ t1 (ce563ea3...)  "confidence": "expert_consensus"   (unchanged -- has real DNR claim on decision-critical field)
+ t2 (3fa5bde0...)  "confidence": "expert_consensus"   (unchanged)
+ t3 (bc01b0a6...)  "confidence": "expert_consensus"   (unchanged)
+ t4 (f5798698...)  "confidence": "expert_consensus"   (unchanged)
+ t5 (e1347453...)  "confidence": "expert_consensus"   (unchanged)
+-t6 (01d2eee7...)  "confidence": "anecdotal"
++t6 (01d2eee7...)  "confidence": "estimated"
+-t7 (2eaabf4e...)  "confidence": "anecdotal"
++t7 (2eaabf4e...)  "confidence": "estimated"
+-t8 (7e767248...)  "confidence": "anecdotal"
++t8 (7e767248...)  "confidence": "estimated"
+-t9 (09b689d6...)  "confidence": "anecdotal"
++t9 (09b689d6...)  "confidence": "estimated"
+-t10(3d307349...) "confidence": "anecdotal"
++t10(3d307349...) "confidence": "estimated"
+-t11(9557416a...) "confidence": "anecdotal"
++t11(9557416a...) "confidence": "estimated"
+-t12(e37a63b6...) "confidence": "anecdotal"
++t12(e37a63b6...) "confidence": "estimated"
+-t13(26be092c...) "confidence": "anecdotal"
++t13(26be092c...) "confidence": "estimated"
+-t14(15abe327...) "confidence": "anecdotal"
++t14(15abe327...) "confidence": "estimated"
+-t15(c86ca424...) "confidence": "anecdotal"
++t15(c86ca424...) "confidence": "estimated"
+
+Net: 10 of 15 tactics downgrade one full tier (anecdotal -> estimated). The 5 tactics
+resting on a real DNR claim (t1-t5) keep expert_consensus -- they do NOT reach
+`established` because none has a second, independent, corroborating source (see
+semantic-audit-report.md section 2, "claims needing a second independent source").
+
+=== 2. equipment precision fields, all 15 tactics ===
+
+--- pilot-data.json (tactics[].equipment.{line_test_lb,lure_weight_oz,retrieve.pause_seconds}.precision)
++++ corrected
+-"precision": "exact"
++"precision": "general"
+(applies to all numeric equipment ranges across all 15 tactics -- none of the 15 tactics'
+line-test, lure-weight, or pause-duration numbers are stated by any fetched DNR source;
+they are self-authored "standard tackle" figures. Per instruction 2: "never manufacture a
+range merely to fill the schema" -- general/estimated precision, not exact, is the honest
+label. This does not remove the numbers; it stops the schema from implying a sourced
+number where none exists.)
+
+=== 3. regulation_provision: catch_and_release_permitted (statewide) ===
+
+--- pilot-data.json (provisions[4].evidence / claim linkage)
++++ corrected
+ The provision currently cites the Mille Lacs walleye-limit news release as its sole
+ evidence. That release does not state a general catch-and-release permission.
+-No correction applied automatically -- this requires either:
++  (a) a real MN DNR citation that actually states this rule, replacing the current
++      mis-cited claim, OR
++  (b) if no such citation is found, downgrading this provision's own status to
++      "needs_verification" (a new status value, not yet in the enum) rather than
++      leaving it implying DNR support it doesn't have.
+ Flagged, not silently fixed, because fixing it requires new research, not a schema edit.
+
+=== 4. t9 (turbid crawler-harness) -- missing next_try ===
+
+--- pilot-data.json (tactics[8].alternatives)
++++ corrected
+ t9.fails_when states clear water favors a subtler presentation, but t9.alternatives has
+ no entry of relationship_type "next_try" pointing anywhere.
+-No specific target tactic recommended here -- none of the 15 pilot tactics is a clean
+-"subtle presentation in clear water for the same species/season" match; recommending one
+-of the 14 others by guesswork would be exactly the kind of invented precision this audit
+-exists to catch. Logged as a genuine content gap requiring a new tactic record, not a
+-relationship-only fix.

@@ -3,9 +3,9 @@
   "$id": "https://fishwizz.dev/schema/tactic.schema.json",
   "type": "object", "additionalProperties": false,
   "required": ["id", "content_fingerprint", "presentation_id", "species", "applies_when",
-    "equipment", "bait_method_tags", "retrieve", "rigging_instructions", "bite_detection",
+    "equipment", "bait_composition", "presentation_method_tags", "retrieve", "rigging_instructions", "bite_detection",
     "hookset_fight", "works_when", "fails_when", "diagnostic_signals",
-    "environment_applicability", "conservation_notes", "evidence", "confidence",
+    "environment_applicability", "conservation_notes", "evidence", "confidence", "readiness", "readiness_reason",
     "geographic_applicability", "verified_date", "alternatives",
     "record_status", "reviewed_by", "reviewed_at", "approved_by", "approved_at",
     "superseded_by", "created_at", "updated_at", "published_at",
@@ -27,8 +27,10 @@
 
     "applies_when": { "$ref": "shared-definitions.schema.json#/$defs/condition_set" },
     "equipment": { "$ref": "#/$defs/equipment" },
-    "bait_method_tags": { "type": "array", "minItems": 1, "items": { "$ref": "shared-definitions.schema.json#/$defs/bait_method_tag_enum" },
-      "description": "STRUCTURED, not prose -- lets a no_live_bait/artificial_only user constraint hard-filter this tactic directly (contains 'live_bait' or 'cut_bait' -> excluded when the Mission passes no_live_bait)." },
+    "bait_composition": { "$ref": "shared-definitions.schema.json#/$defs/bait_composition",
+      "description": "gate-4 remediation: replaces bait_method_tags, whose flat array let a tactic carry BOTH 'artificial_only' and 'live_bait' at once with no authoritative answer for hard-filtering (the exact t8 defect the semantic audit found). A single `mode` is now mutually exclusive and is what the scorer's artificial_only/no_live_bait filters actually key off." },
+    "presentation_method_tags": { "type": "array", "minItems": 1, "items": { "$ref": "shared-definitions.schema.json#/$defs/presentation_method_enum" },
+      "description": "The delivery METHOD (casting/trolling/jigging/etc.), split out from the old bait_method_tags' composition/method conflation." },
 
     "retrieve": { "type": "object", "additionalProperties": false,
       "required": ["speed", "cadence", "pause_seconds", "depth_control", "rod_position"],
@@ -55,6 +57,9 @@
       "description": "One entry PER covered field_path -- requirement-5 fix: a single claim no longer silently 'supports' the whole record. covers_field_path must be one of REQUIRED_EVIDENCE_FIELD_PATHS (see the import validator); every required path with no matching entry blocks publish." },
 
     "confidence": { "$ref": "shared-definitions.schema.json#/$defs/confidence_enum" },
+    "readiness": { "$ref": "shared-definitions.schema.json#/$defs/readiness_enum" },
+    "readiness_reason": { "type": "string", "minLength": 1,
+      "description": "Human-readable explanation of the readiness value -- e.g. which decision-critical field(s) are still unsupported, or which safety/regulation gap applies. Computed, not asserted." },
     "geographic_applicability": { "$ref": "shared-definitions.schema.json#/$defs/geographic_applicability_enum" },
     "verified_date": { "$ref": "shared-definitions.schema.json#/$defs/date" },
 

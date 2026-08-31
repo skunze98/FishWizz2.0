@@ -1,0 +1,122 @@
+[
+  {
+    "tactic_index": "t1",
+    "tactic_id": "d834eb67-69e7-4cca-a3df-a85564325067",
+    "presentation_slug": "jig-minnow",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t2",
+    "tactic_id": "15b0a7f8-108d-4b73-af4a-e8854e5fa861",
+    "presentation_slug": "slip-sinker-livebait-rig",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t3",
+    "tactic_id": "91015d73-c831-4621-a4d5-68742b4ff860",
+    "presentation_slug": "shallow-crankbait",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t4",
+    "tactic_id": "32f92c8d-c91a-46f2-81df-96b1b23da206",
+    "presentation_slug": "jigging-spoon-aggressive",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t5",
+    "tactic_id": "5be9c8f6-c5e2-426c-a02b-20f44b9f95ca",
+    "presentation_slug": "jig-minnow-head-deadstick",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t6",
+    "tactic_id": "c39bd44d-eeb2-4c25-b199-7de3b9ce9551",
+    "presentation_slug": "jig-minnow",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t7",
+    "tactic_id": "8bd9bce1-2013-4edb-a9e1-d5ec82e912c4",
+    "presentation_slug": "slip-bobber-livebait",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t8",
+    "tactic_id": "cff1d011-af9e-415d-9812-7c6b9daffd8b",
+    "presentation_slug": "jig-minnow",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "blocked_by_safety_gap",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t9",
+    "tactic_id": "bbe350b0-8ff7-4530-9dfe-d986123d7463",
+    "presentation_slug": "crawler-harness-troll",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t10",
+    "tactic_id": "395d1c2c-de57-421d-b8c5-a2d30fd11949",
+    "presentation_slug": "slip-sinker-livebait-rig",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t11",
+    "tactic_id": "d53bb3bc-e72f-4aed-8432-c11e7c58339d",
+    "presentation_slug": "shallow-crankbait",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t12",
+    "tactic_id": "05fdea7e-9601-426a-8a03-84ec0d590ede",
+    "presentation_slug": "jig-minnow-head-deadstick",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t13",
+    "tactic_id": "fddb2788-5c71-4e8c-98de-36a0fd988345",
+    "presentation_slug": "slip-bobber-livebait",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t14",
+    "tactic_id": "b6bdca41-1d65-46b6-aca4-42178042877a",
+    "presentation_slug": "slip-sinker-livebait-rig",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  },
+  {
+    "tactic_index": "t15",
+    "tactic_id": "6538afd6-94a9-4155-a93d-4f2d3c4bb8ec",
+    "presentation_slug": "jig-minnow-head-deadstick",
+    "workflow_state": "awaiting_expert_consultation",
+    "readiness": "research_incomplete",
+    "expert_contributions": []
+  }
+]

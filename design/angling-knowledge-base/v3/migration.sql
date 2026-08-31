@@ -57,10 +57,11 @@ CREATE TABLE angling_source (
     id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
     title text NOT NULL,
     organization text NOT NULL,
+    parent_organization text,
     url text NOT NULL,
     publication_date date,
     access_date date NOT NULL,
-    source_type text NOT NULL CHECK (source_type IN ('primary_official','peer_reviewed','expert_consensus','manufacturer_guidance','anecdotal','expert_synthesis')),
+    source_type text NOT NULL CHECK (source_type IN ('official_guidance','peer_review_supported','independently_corroborated','manufacturer_guidance','expert_synthesis','anecdotal')),
     geographic_relevance text NOT NULL CHECK (geographic_relevance IN ('MN','WI','MN_WI_boundary','great_lakes','national')),
     record_status text NOT NULL DEFAULT 'draft' CHECK (record_status IN ('draft','reviewed','approved','published','retired')),
     content_fingerprint text NOT NULL,
@@ -77,11 +78,14 @@ CREATE TABLE angling_source (
 -- via three typed junctions below -- angling_claim itself stays subject-free.
 CREATE TABLE angling_claim (
     id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
-    source_id uuid NOT NULL REFERENCES angling_source(id) ON DELETE RESTRICT,
+    evidence_status text NOT NULL CHECK (evidence_status IN ('externally_sourced','derived_synthesis','unsupported_gap')),
+    source_id uuid REFERENCES angling_source(id) ON DELETE RESTRICT,
     field_path text NOT NULL,
     paraphrased_claim text NOT NULL,
     source_location text NOT NULL,
-    evidence_type text NOT NULL CHECK (evidence_type IN ('primary_official','peer_reviewed','expert_consensus','manufacturer_guidance','anecdotal','expert_synthesis')),
+    evidence_type text CHECK (evidence_type IS NULL OR evidence_type IN ('official_guidance','peer_review_supported','independently_corroborated','manufacturer_guidance','expert_synthesis','anecdotal')),
+    derived_from_claim_ids uuid[] NOT NULL DEFAULT '{}',
+    derivation_explanation text,
     access_date date NOT NULL,
     geographic_applicability text NOT NULL CHECK (geographic_applicability IN ('MN','WI','MN_WI','great_lakes_only','national')),
     reviewer_status text NOT NULL DEFAULT 'unreviewed' CHECK (reviewer_status IN ('unreviewed','reviewer_confirmed','reviewer_flagged')),
@@ -89,7 +93,21 @@ CREATE TABLE angling_claim (
     reviewed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT angling_claim_confirmed_requires_reviewer
-      CHECK (reviewer_status <> 'reviewer_confirmed' OR (reviewer_id IS NOT NULL AND reviewed_at IS NOT NULL))
+      CHECK (reviewer_status <> 'reviewer_confirmed' OR (reviewer_id IS NOT NULL AND reviewed_at IS NOT NULL)),
+    -- gate-4 remediation: evidence_status governs which columns are populated.
+    -- Never create a placeholder source to force source_id non-null; use derived_synthesis or unsupported_gap instead.
+    CONSTRAINT angling_claim_externally_sourced_shape CHECK (
+      evidence_status <> 'externally_sourced' OR (source_id IS NOT NULL AND evidence_type IS NOT NULL AND derived_from_claim_ids = '{}')
+    ),
+    CONSTRAINT angling_claim_derived_synthesis_shape CHECK (
+      evidence_status <> 'derived_synthesis' OR (source_id IS NULL AND evidence_type IS NOT NULL AND array_length(derived_from_claim_ids,1) >= 1 AND derivation_explanation IS NOT NULL)
+    ),
+    CONSTRAINT angling_claim_derived_expert_consensus_needs_two CHECK (
+      evidence_status <> 'derived_synthesis' OR evidence_type <> 'expert_consensus' OR array_length(derived_from_claim_ids,1) >= 2
+    ),
+    CONSTRAINT angling_claim_unsupported_gap_shape CHECK (
+      evidence_status <> 'unsupported_gap' OR (source_id IS NULL AND evidence_type IS NULL AND derived_from_claim_ids = '{}')
+    )
 );
 
 CREATE TABLE angling_presentation (
@@ -162,7 +180,8 @@ CREATE TABLE angling_tactic (
     presentation_id uuid NOT NULL REFERENCES angling_presentation(id) ON DELETE RESTRICT,
     applies_when jsonb NOT NULL,
     equipment jsonb NOT NULL,
-    bait_method_tags text[] NOT NULL,
+    bait_composition jsonb NOT NULL,
+    presentation_method_tags text[] NOT NULL,
     retrieve jsonb NOT NULL,
     rigging_instructions text NOT NULL,
     bite_detection text NOT NULL,
@@ -173,7 +192,9 @@ CREATE TABLE angling_tactic (
     casting_access_required text CHECK (casting_access_required IS NULL OR casting_access_required IN ('open','limited','tight')),
     environment_applicability jsonb NOT NULL,
     conservation_notes text,
-    confidence text NOT NULL CHECK (confidence IN ('established','expert_consensus','anecdotal','estimated')),
+    confidence text NOT NULL CHECK (confidence IN ('peer_review_supported','independently_corroborated','official_guidance','expert_synthesis','anecdotal','estimated','unsupported')),
+    readiness text NOT NULL CHECK (readiness IN ('ready_for_human_review','research_incomplete','blocked_by_conflicting_evidence','blocked_by_safety_gap','blocked_by_regulation_gap')),
+    readiness_reason text NOT NULL,
     geographic_applicability text NOT NULL CHECK (geographic_applicability IN ('MN','WI','MN_WI','great_lakes_only','national')),
     verified_date date NOT NULL,
     record_status text NOT NULL DEFAULT 'draft' CHECK (record_status IN ('draft','reviewed','approved','published','retired','superseded')),
@@ -195,7 +216,8 @@ CREATE TABLE angling_tactic (
 );
 CREATE INDEX idx_tactic_status ON angling_tactic(record_status);
 CREATE INDEX idx_tactic_applies_when_gin ON angling_tactic USING gin(applies_when);
-CREATE INDEX idx_tactic_bait_tags_gin ON angling_tactic USING gin(bait_method_tags);
+CREATE INDEX idx_tactic_bait_composition_gin ON angling_tactic USING gin(bait_composition);
+CREATE INDEX idx_tactic_method_tags_gin ON angling_tactic USING gin(presentation_method_tags);
 
 CREATE TABLE tactic_species (
     tactic_id uuid NOT NULL REFERENCES angling_tactic(id) ON DELETE CASCADE,

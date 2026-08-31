@@ -25,7 +25,7 @@ function baseObserved(overrides = {}) {
   return Object.assign(base, overrides);
 }
 
-const scenarios = [
+export const scenarios = [
   // -- 5 from the original readable-artifact design examples --
   { name: '1. Shore, walleye, after a MN cold front (water temp unknown, no live bait)', platform: 'shore', speciesId: walleyeId, user_constraint_tags: ['no_live_bait'],
     observed_conditions: baseObserved({ weather_front: o('observed', 'passed_recently'), barometric_pressure_trend: o('observed', 'rising') }) },
@@ -60,12 +60,18 @@ const scenarios = [
     observed_conditions: baseObserved() },
 ];
 
+// gate-7: guard so other scripts can `import { scenarios } from './run-scenarios.mjs'` (to reuse
+// the real scenario definitions) without also re-running/re-printing the whole scenario sweep as
+// a side effect. Only executes when run directly (`node run-scenarios.mjs`).
+const isMain = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` || import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`;
+if (isMain) {
 console.log(`Reference scorer version: pilot-reference-0.1.0 (design-only, not the production scorer)\n`);
 for (const scenario of scenarios) {
-  const { ranked, excluded, scorer_version } = rankTactics(pilot.tactics, scenario);
+  const { ranked, excluded, cautions, scorer_version } = rankTactics(pilot.tactics, scenario);
   console.log(`\n${'='.repeat(78)}\n${scenario.name}`);
   console.log(`  scorer_version=${scorer_version}  platform=${scenario.platform}  constraints=${JSON.stringify(scenario.user_constraint_tags || [])}`);
-  console.log(`  ${ranked.length} candidate(s) survived hard filters, ${excluded.length} excluded outright.`);
+  console.log(`  ${ranked.length} candidate(s) survived hard filters, ${excluded.length} excluded outright, ${cautions.length} returned insufficient_safety_data (gate-4 kayak/canoe high-wind placeholder).`);
+  if (cautions.length) console.log(`  CAUTION: ${cautions.map(c => c.filterReasons[0]).join(' | ')}`);
   ranked.slice(0, 3).forEach((r, i) => {
     const t = r.tactic;
     const claimIds = t.evidence.map(e => e.claim_id);
@@ -94,3 +100,4 @@ if (deadstick) console.log(`  Deadstick: rank present, score ${deadstick.finalSc
 const conflictRel = aggressiveSpoon?.tactic.alternatives.find(a => a.relationship_type === 'conflicts_with');
 console.log(`  conflicts_with note present and explains the disagreement: ${!!conflictRel}`);
 if (conflictRel) console.log(`  note: "${conflictRel.note.slice(0, 120)}..."`);
+} // end isMain guard

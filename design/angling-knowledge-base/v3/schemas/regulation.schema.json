@@ -64,7 +64,7 @@
       "required": ["species_id"], "properties": { "species_id": { "$ref": "shared-definitions.schema.json#/$defs/uuid" } } } },
     "combined_with_species_ids": { "type": "array", "items": { "$ref": "shared-definitions.schema.json#/$defs/uuid" } },
 
-    "value": { "description": "Discriminated by provision_type -- see allOf below.", "type": ["object", "boolean", "integer"] },
+    "value": { "description": "Discriminated by provision_type -- see allOf below.", "type": ["object", "integer"] },
 
     "is_emergency": { "type": "boolean" },
     "precedence_rank": { "type": "integer" },
@@ -96,7 +96,15 @@
         "properties": { "rule_type": { "enum": ["minimum", "maximum", "protected_slot", "one_over_threshold"] },
           "min_in": { "type": ["number", "null"] }, "max_in": { "type": ["number", "null"] } } } } } },
     { "if": { "properties": { "provision_type": { "enum": ["targeting_permitted", "catch_and_release_permitted", "harvest_permitted"] } } },
-      "then": { "properties": { "value": { "type": "boolean" } } } },
+      "then": { "properties": { "value": { "type": "object", "additionalProperties": false, "required": ["determination", "note"],
+        "properties": {
+          "determination": { "enum": ["confirmed_permitted", "confirmed_prohibited", "unknown"] },
+          "note": { "type": ["string", "null"] },
+          "official_lookup_url": { "type": ["string", "null"], "format": "uri" }
+        },
+        "allOf": [ { "if": { "properties": { "determination": { "const": "unknown" } } },
+          "then": { "required": ["official_lookup_url"], "properties": { "official_lookup_url": { "type": "string" } } } } ],
+        "description": "gate-4 remediation: replaces a bare boolean, which could not represent 'we don't actually know' and let an unsupported claim silently render as a confident true/false. 'unknown' is a first-class outcome, not an error state -- it must direct the user to an official lookup rather than asserting an unverified permission." } } } },
     { "if": { "properties": { "provision_type": { "enum": ["bait_restriction", "gear_restriction", "method_restriction"] } } },
       "then": { "properties": { "value": { "type": "object", "additionalProperties": false, "required": ["description"], "properties": { "description": { "type": "string", "minLength": 1 } } } } } },
 

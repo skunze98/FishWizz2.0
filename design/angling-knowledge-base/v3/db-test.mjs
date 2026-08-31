@@ -73,16 +73,16 @@ await expectFail('gear_compatibility_profile with min line test > max line test 
 const tacticId = '6f5e4d3c-2b1a-4c9d-8e7f-0102030405a6';
 const reviewerId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 await expectFail('a PUBLISHED tactic missing approved_by/approved_at is REJECTED (requirement-5 review-chain constraint)', () =>
-  db.query(`INSERT INTO angling_tactic (id, content_fingerprint, presentation_id, applies_when, equipment, bait_method_tags, retrieve, rigging_instructions, bite_detection, hookset_fight, works_when, fails_when, diagnostic_signals, environment_applicability, confidence, geographic_applicability, verified_date, record_status, reviewed_by, reviewed_at)
-    VALUES ($1, 'tfp1', $2, '{"a":1}', '{}', '{live_bait}', '{}', 'rig it', 'bite', 'set', 'works', 'fails', 'diag', '{}', 'expert_consensus', 'MN_WI', '2026-08-28', 'published', $3, now())`,
+  db.query(`INSERT INTO angling_tactic (id, content_fingerprint, presentation_id, applies_when, equipment, bait_composition, presentation_method_tags, retrieve, rigging_instructions, bite_detection, hookset_fight, works_when, fails_when, diagnostic_signals, environment_applicability, confidence, readiness, readiness_reason, geographic_applicability, verified_date, record_status, reviewed_by, reviewed_at)
+    VALUES ($1, 'tfp1', $2, '{"a":1}', '{}', '{"mode":"live_bait_only","components":["live_minnow"]}', '{jigging}', '{}', 'rig it', 'bite', 'set', 'works', 'fails', 'diag', '{}', 'official_guidance', 'ready_for_human_review', 'x', 'MN_WI', '2026-08-28', 'published', $3, now())`,
     [tacticId, presId, reviewerId]));
 
 await expectOk('the SAME tactic WITH the full review chain inserts successfully', () =>
-  db.query(`INSERT INTO angling_tactic (id, content_fingerprint, presentation_id, applies_when, equipment, bait_method_tags, retrieve, rigging_instructions, bite_detection, hookset_fight, works_when, fails_when, diagnostic_signals, environment_applicability, confidence, geographic_applicability, verified_date, record_status, reviewed_by, reviewed_at, approved_by, approved_at, published_at)
-    VALUES ($1, 'tfp1', $2, '{"a":1}', '{}', '{live_bait}', '{}', 'rig it', 'bite', 'set', 'works', 'fails', 'diag', '{}', 'expert_consensus', 'MN_WI', '2026-08-28', 'published', $3, now(), $3, now(), now())`,
+  db.query(`INSERT INTO angling_tactic (id, content_fingerprint, presentation_id, applies_when, equipment, bait_composition, presentation_method_tags, retrieve, rigging_instructions, bite_detection, hookset_fight, works_when, fails_when, diagnostic_signals, environment_applicability, confidence, readiness, readiness_reason, geographic_applicability, verified_date, record_status, reviewed_by, reviewed_at, approved_by, approved_at, published_at)
+    VALUES ($1, 'tfp1', $2, '{"a":1}', '{}', '{"mode":"live_bait_only","components":["live_minnow"]}', '{jigging}', '{}', 'rig it', 'bite', 'set', 'works', 'fails', 'diag', '{}', 'official_guidance', 'ready_for_human_review', 'x', 'MN_WI', '2026-08-28', 'published', $3, now(), $3, now(), now())`,
     [tacticId, presId, reviewerId]));
 
-const waterbodyId = 'dddddddd-1111-4222-8333-444444444444';
+const waterbodyId = 'a96c6a4c-19ed-4455-a091-6233f688d336'; // real FishWizz waterbodies.id for Mille Lacs Lake (gate-4 fix -- see supabase/schema/waterbodies-data.sql)
 await expectFail('a PUBLISHED named_water regulation_provision with NO waterbody_id in geographic_scope is REJECTED', () =>
   db.query(`INSERT INTO regulation_provision (provision_slug, content_fingerprint, provision_type, geographic_scope, temporal_scope, value, official_wording, source_location, status, mandatory_reverify_by, verified_date, record_status, reviewed_by, reviewed_at, approved_by, approved_at, published_at)
     VALUES ('mn.named_water.test-lake.walleye.daily_limit.2026', 'rfp1', 'daily_limit',
